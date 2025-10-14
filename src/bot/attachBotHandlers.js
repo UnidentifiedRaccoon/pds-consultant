@@ -7,7 +7,7 @@ import { tryLock, unlock } from './antiFlood.js';
  */
 async function generateStaticResponse(messages) {
   // Получаем последнее сообщение пользователя
-  const lastUserMessage = messages.filter(msg => msg.role === 'user').pop();
+  const lastUserMessage = messages.filter((msg) => msg.role === 'user').pop();
   const userText = lastUserMessage?.text?.toLowerCase() || '';
 
   // Простые ответы на основе ключевых слов
@@ -424,9 +424,7 @@ export function attachBotHandlers(bot) {
       const context = getChatContext(chatId);
 
       // Формируем сообщения для статического ответа (контекст)
-      const messages = [
-        ...context.map((msg) => ({ role: msg.role, text: msg.text })),
-      ];
+      const messages = [...context.map((msg) => ({ role: msg.role, text: msg.text }))];
 
       const reply = await generateStaticResponse(messages);
 
