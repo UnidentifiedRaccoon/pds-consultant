@@ -30,24 +30,27 @@ async function generateStaticResponse(messages) {
   }
 
   if (userText.includes('что такое пдс') || userText.includes('пдс')) {
-    return `📚 **Программа долгосрочных сбережений (ПДС)** — это государственная программа для накопления пенсии.
+    return `✨ **Что такое ПДС**
 
-**Основные преимущества:**
-• Государственная поддержка до 36 000 руб/год
-• Налоговый вычет 13% или 15% с взносов
-• Возможность досрочного выхода на пенсию
-• Наследование накоплений
+Программа долгосрочных сбережений (ПДС) — это новый способ формировать личный капитал 💰.
+Её запустили по инициативе правительства, Минфина и Банка России 🏛️.
+Главная цель — помочь гражданам создать дополнительный доход и финансовую «подушку» на будущее.
 
-**Условия:**
-• Минимальный взнос: 1 000 руб/мес
-• Максимальный взнос: 400 000 руб/год
-• Срок участия: не менее 15 лет
-• Возраст: от 18 до 60 лет
+👥 Участвовать может любой совершеннолетний: достаточно заключить договор с НПФ.
 
-**Господдержка:**
-• 1:1 до 12 000 руб/год (100% от взноса)
-• 1:2 до 24 000 руб/год (50% от взноса)
-• 1:3 до 36 000 руб/год (33% от взноса)
+💡 **Что даёт ПДС:**
+
+💸 **Господдержка:** прибавка к взносам в первые 10 лет (по ФЗ № 177-ФЗ от 13.07.2024).
+
+🛡️ **Защита:** страхование вложений и дохода.
+
+💰 **Налоговый вычет** каждый год.
+
+⏳ **Гибкость:** можно забрать деньги через 15 лет или раньше — в особых случаях.
+
+👨‍👩‍👧 **Наследование:** сбережения переходят родным.
+
+🔗 Подробнее: объясняем.рф - @https://объясняем.рф/articles/useful/kak-priumnozhit-i-poluchit-nakopitelnuyu-pensiyu/
 
 Хотите рассчитать свои накопления?`;
   }
@@ -88,6 +91,17 @@ import {
   createInfoKeyboard,
   getCommandType,
 } from './messages.js';
+import {
+  startCalculator,
+  handleGoalSelection,
+  handleUserInput,
+  handlePayoutStartSelection,
+  handleYesNoSelection,
+  handleStartAgain,
+  handleCancel,
+  isInCalculator,
+} from './calculator.js';
+import { CALCULATION_GOALS } from '../storage/calculatorState.js';
 import { logger } from '../logger.js';
 import { markUpdateStart, markUpdateOk, markUpdateErr, markLlm } from '../metrics.js';
 import {
@@ -141,45 +155,19 @@ function isCalculationResponse(response) {
 }
 
 /**
- * Начинает диалог расчёта с LLM
+ * Начинает диалог расчёта с пошаговым калькулятором
  */
-/* eslint-disable no-irregular-whitespace */
 async function startCalculationDialog(chatId, bot) {
   try {
     await bot.sendChatAction(chatId, 'typing');
 
-    // Стандартное сообщение с вопросами для кнопки "Рассчитать"
-    const standardMessage = `🎯 Давай начнём расчёт. Для этого мне нужно узнать несколько данных. Пожалуйста, ответь на следующие вопросы:
-
-1) Пол (жен/муж) — ?
-2) Возраст (полных лет) — ?
-3) Официальный среднемесячный доход «до НДФЛ» (руб/мес) — ?
-4) Цель: допвыплата (руб/мес) или капитал к началу выплат (руб) — ?
-5) Планируемый регулярный взнос в ПДС (руб/мес) — ?
-6) Когда начать выплаты: «по общему правилу» или «через N лет» — ?
-
-По желанию (для точности):
-7) Стартовый капитал для ПДС (если есть), руб — ?
-8) Ставка НДФЛ: 13% (по умолчанию) / 15% — ?
-9) Реинвестировать налоговый вычет обратно в ПДС: да (по умолчанию) / нет — ?
-
-Жду твоих ответов!`;
-
-    // Добавляем сообщение пользователя в контекст (имитируем запрос на расчёт)
+    // Добавляем сообщение пользователя в контекст
     addMessageToContext(chatId, 'user', 'рассчитать');
 
-    // Добавляем стандартный ответ бота в контекст
-    addMessageToContext(chatId, 'assistant', standardMessage);
+    // Запускаем пошаговый калькулятор
+    await startCalculator(chatId, bot);
 
     markLlm(true);
-
-    // Отправляем стандартное сообщение с кнопкой возврата в главное меню
-    const keyboard = createBackToMainKeyboard();
-    await bot.sendMessage(chatId, standardMessage, {
-      disable_web_page_preview: true,
-      ...keyboard,
-    });
-
     markUpdateOk();
   } catch (e) {
     markLlm(false);
@@ -397,6 +385,14 @@ export function attachBotHandlers(bot) {
     const text = (msg.text ?? '').trim();
     if (!text || text.startsWith('/')) return;
 
+    // Проверяем, находится ли пользователь в процессе калькулятора
+    if (isInCalculator(chatId)) {
+      const handled = await handleUserInput(chatId, text, bot);
+      if (handled) {
+        return; // Обработано калькулятором
+      }
+    }
+
     // Проверяем состояние чата - если ожидается подтверждение данных, игнорируем текстовые сообщения
     const chatState = getChatState(chatId);
     if (chatState === 'waiting_confirmation') {
@@ -510,6 +506,64 @@ export function attachBotHandlers(bot) {
         });
         const keyboard = createBackToMainKeyboard();
         await bot.sendMessage(chatId, MESSAGES.CONSULTATION_IN_DEVELOPMENT, keyboard);
+        return;
+      }
+
+      // Обработка кнопок калькулятора - выбор цели
+      if (data === MESSAGES.CALLBACK_DATA.GOAL_ADDITIONAL_PAYMENT) {
+        await bot.answerCallbackQuery(callbackQuery.id, { text: 'Выбрана дополнительная выплата' });
+        await handleGoalSelection(chatId, CALCULATION_GOALS.ADDITIONAL_PAYMENT, bot);
+        return;
+      }
+
+      if (data === MESSAGES.CALLBACK_DATA.GOAL_CAPITAL_TO_PAYOUT) {
+        await bot.answerCallbackQuery(callbackQuery.id, { text: 'Выбран капитал к началу выплат' });
+        await handleGoalSelection(chatId, CALCULATION_GOALS.CAPITAL_TO_PAYOUT, bot);
+        return;
+      }
+
+      if (data === MESSAGES.CALLBACK_DATA.GOAL_NO_GOAL) {
+        await bot.answerCallbackQuery(callbackQuery.id, { text: 'Выбрано без цели' });
+        await handleGoalSelection(chatId, CALCULATION_GOALS.NO_GOAL, bot);
+        return;
+      }
+
+      // Обработка выбора времени начала выплат
+      if (data === MESSAGES.CALLBACK_DATA.PAYOUT_BY_RULE) {
+        await bot.answerCallbackQuery(callbackQuery.id, { text: 'По общему правилу' });
+        await handlePayoutStartSelection(chatId, 'rule', bot);
+        return;
+      }
+
+      if (data === MESSAGES.CALLBACK_DATA.PAYOUT_IN_YEARS) {
+        await bot.answerCallbackQuery(callbackQuery.id, { text: 'Через N лет' });
+        await handlePayoutStartSelection(chatId, 'years', bot);
+        return;
+      }
+
+      // Обработка Да/Нет
+      if (data === MESSAGES.CALLBACK_DATA.YES) {
+        await bot.answerCallbackQuery(callbackQuery.id, { text: 'Да' });
+        await handleYesNoSelection(chatId, true, bot);
+        return;
+      }
+
+      if (data === MESSAGES.CALLBACK_DATA.NO) {
+        await bot.answerCallbackQuery(callbackQuery.id, { text: 'Нет' });
+        await handleYesNoSelection(chatId, false, bot);
+        return;
+      }
+
+      // Обработка кнопок при превышении лимита ошибок
+      if (data === MESSAGES.CALLBACK_DATA.START_AGAIN) {
+        await bot.answerCallbackQuery(callbackQuery.id, { text: 'Начинаем сначала' });
+        await handleStartAgain(chatId, bot);
+        return;
+      }
+
+      if (data === MESSAGES.CALLBACK_DATA.CANCEL) {
+        await bot.answerCallbackQuery(callbackQuery.id, { text: 'Отменено' });
+        await handleCancel(chatId, bot);
         return;
       }
 
