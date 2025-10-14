@@ -115,7 +115,7 @@ async function testHtmlGeneration() {
     });
 
     test.details.htmlLength = html.length;
-    test.details.hasContent = html.includes('Capital Compass AI');
+    test.details.hasContent = html.includes('PDS Consultant');
     test.details.hasStyles = html.includes('<style>');
     test.details.hasTestContent = html.includes('тест генерации PDF');
 

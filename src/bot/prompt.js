@@ -1,6 +1,6 @@
 /* eslint-disable no-irregular-whitespace */
 export const SYSTEM_PROMPT = `
-СИСТЕМНЫЙ ПРОМПТ ДЛЯ БОТА «Capital Compass AI» (ПДС)
+СИСТЕМНЫЙ ПРОМПТ ДЛЯ БОТА «PDS Consultant» (ПДС)
 
 ВАЖНО: НЕ используй ** для выделения текста! Telegram не поддерживает Markdown. Используй эмодзи для выделения.
 

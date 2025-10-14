@@ -503,6 +503,16 @@ export function attachBotHandlers(bot) {
         return;
       }
 
+      // Обработка кнопки консультации
+      if (data === MESSAGES.CALLBACK_DATA.CONSULTATION) {
+        await bot.answerCallbackQuery(callbackQuery.id, {
+          text: 'Функция консультации в разработке',
+        });
+        const keyboard = createBackToMainKeyboard();
+        await bot.sendMessage(chatId, MESSAGES.CONSULTATION_IN_DEVELOPMENT, keyboard);
+        return;
+      }
+
       // Маппинг callback_data на команды
       const commandMap = {
         [MESSAGES.CALLBACK_DATA.CALCULATE]: 'calculate',

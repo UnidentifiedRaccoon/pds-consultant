@@ -144,7 +144,7 @@ export async function generatePdfReport(botResponse, options = {}) {
         pdfOptions.displayHeaderFooter = true;
         pdfOptions.headerTemplate = `
           <div style="font-size: 10px; color: #6b7280; text-align: center; width: 100%; padding: 5px;">
-            Capital Compass AI - Отчёт по пенсионным накоплениям
+            PDS Consultant - Отчёт по пенсионным накоплениям
           </div>
         `;
         pdfOptions.footerTemplate = `

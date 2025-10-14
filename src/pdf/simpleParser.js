@@ -128,7 +128,7 @@ export function createSimpleReportHtml(botResponse, options = {}) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Отчёт по пенсионным накоплениям - Capital Compass AI</title>
+    <title>Отчёт по пенсионным накоплениям - PDS Consultant</title>
     <style>
         /* Используем системные шрифты вместо Google Fonts для serverless */
         
@@ -256,7 +256,7 @@ export function createSimpleReportHtml(botResponse, options = {}) {
 <body>
     <div class="container">
         <div class="header">
-            <div class="logo">🎯 Capital Compass AI</div>
+            <div class="logo">🎯 PDS Consultant</div>
             <div class="subtitle">Отчёт по пенсионным накоплениям</div>
             <div class="report-date">${reportDate}</div>
         </div>
@@ -266,7 +266,7 @@ export function createSimpleReportHtml(botResponse, options = {}) {
         </div>
         
         <div class="footer">
-            <div>Сгенерировано ботом Capital Compass AI</div>
+            <div>Сгенерировано ботом PDS Consultant</div>
             <div class="disclaimer">
                 Данный отчёт носит информационный характер. 
                 Расчёты основаны на фиксированной доходности 10% годовых. 
