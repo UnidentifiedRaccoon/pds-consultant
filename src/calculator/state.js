@@ -116,20 +116,6 @@ export function cleanupExpiredSessions() {
 }
 
 /**
- * Получить статистику сессий
- * @returns {Object} Статистика
- */
-export function getCalculatorStats() {
-  return {
-    activeSessions: calculatorSessions.size,
-    sessionsByStep: Array.from(calculatorSessions.values()).reduce((acc, session) => {
-      acc[session.step] = (acc[session.step] || 0) + 1;
-      return acc;
-    }, {}),
-  };
-}
-
-/**
  * Запустить периодическую очистку устаревших сессий
  * @param {number} intervalMs - Интервал очистки в миллисекундах (по умолчанию 5 минут)
  */

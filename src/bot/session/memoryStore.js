@@ -3,7 +3,24 @@
  * Простое хранилище на основе Map для хранения сессий пользователей
  */
 
-import { createSession } from '../state/types.js';
+/**
+ * Создаёт новую сессию
+ * @param {number} chatId - ID чата
+ * @param {string} scenario - Сценарий расчёта
+ * @returns {Object} Новая сессия
+ */
+function createSession(chatId, scenario = null) {
+  const now = new Date();
+  return {
+    chatId,
+    scenario,
+    state: 'idle',
+    data: {},
+    createdAt: now,
+    updatedAt: now,
+    errorCount: 0,
+  };
+}
 
 class MemorySessionStore {
   constructor() {

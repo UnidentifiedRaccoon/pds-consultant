@@ -2,15 +2,12 @@
  * Обработчики меню для ПДС-калькулятора
  */
 
-import { sessionStore } from '../session/memoryStore.js';
-import { getNextState } from '../state/machine.js';
 import { createBackToMainKeyboard } from '../keyboards.js';
 import {
   handleGoalSelection,
   handleUserInput,
   handlePayoutStartSelection,
   handleYesNoSelection,
-  completeCalculation,
   isInCalculator,
   CALCULATION_GOALS,
 } from '../../calculator/index.js';
@@ -25,8 +22,6 @@ import {
  * Обработчик команды /start
  */
 export function handleStartCommand(bot, chatId) {
-  sessionStore.createSession(chatId);
-
   bot.sendMessage(chatId, MESSAGES.WELCOME, createMainKeyboard());
 }
 
@@ -34,8 +29,6 @@ export function handleStartCommand(bot, chatId) {
  * Обработчик команды /menu
  */
 export function handleMenuCommand(bot, chatId) {
-  sessionStore.createSession(chatId);
-
   bot.sendMessage(chatId, MESSAGES.WELCOME, createMainKeyboard());
 }
 
@@ -43,51 +36,14 @@ export function handleMenuCommand(bot, chatId) {
  * Обработчик текстовых сообщений
  */
 export function handleTextMessage(bot, chatId, message) {
-  // Сначала проверяем, находится ли пользователь в процессе нового калькулятора
+  // Используем только новую логику калькулятора
   if (isInCalculator(chatId)) {
     handleUserInput(chatId, message, bot);
     return;
   }
 
-  // Если не в калькуляторе, используем старую логику FSM
-  let session = sessionStore.getSession(chatId);
-
-  // Если сессии нет, создаём новую
-  if (!session) {
-    session = sessionStore.createSession(chatId);
-  }
-
-  // Обрабатываем переход состояния
-  const transition = getNextState(session, message);
-
-  // Обновляем состояние сессии
-  session.state = transition.nextState;
-  sessionStore.updateSession(session);
-
-  // Если есть ошибка, увеличиваем счётчик ошибок
-  if (transition.error) {
-    sessionStore.incrementErrorCount(chatId);
-  } else {
-    sessionStore.resetErrorCount(chatId);
-  }
-
-  // Отправляем ответ
-  const options = {
-    parse_mode: 'HTML',
-  };
-
-  if (transition.keyboard) {
-    Object.assign(options, transition.keyboard);
-  }
-
-  bot.sendMessage(chatId, transition.message, options);
-
-  // Если переходим в состояние расчёта, выполняем расчёт
-  if (transition.nextState === 'calculation') {
-    setTimeout(() => {
-      performCalculation(bot, chatId, session);
-    }, 1000);
-  }
+  // Если пользователь не в калькуляторе, показываем главное меню
+  bot.sendMessage(chatId, MESSAGES.WELCOME, createMainKeyboard());
 }
 
 /**
@@ -97,22 +53,15 @@ export function handleCallbackQuery(bot, callbackQuery) {
   const chatId = callbackQuery.message.chat.id;
   const data = callbackQuery.data;
 
-  // Подтверждаем callback
-  bot.answerCallbackQuery(callbackQuery.id);
-
-  let session = sessionStore.getSession(chatId);
-
-  if (!session) {
-    session = sessionStore.createSession(chatId);
-  }
-
   // Обрабатываем различные callback данные
   switch (data) {
     case MESSAGES.CALLBACK_DATA.CALCULATE:
+      bot.answerCallbackQuery(callbackQuery.id, { text: 'Выберите сценарий расчёта' });
       bot.sendMessage(chatId, MESSAGES.CALCULATOR_GOAL_SELECTION, createGoalSelectionKeyboard());
       break;
 
     case MESSAGES.CALLBACK_DATA.INFO:
+      bot.answerCallbackQuery(callbackQuery.id, { text: 'Информация о ПДС' });
       bot.sendMessage(chatId, MESSAGES.INFO_ABOUT_PDS, {
         ...createInfoKeyboard(),
         parse_mode: 'HTML',
@@ -121,6 +70,7 @@ export function handleCallbackQuery(bot, callbackQuery) {
       break;
 
     case MESSAGES.CALLBACK_DATA.CONSULTATION:
+      bot.answerCallbackQuery(callbackQuery.id, { text: 'Консультация' });
       bot.sendMessage(chatId, MESSAGES.INFO_ABOUT_PDS, {
         ...createInfoKeyboard(),
         parse_mode: 'HTML',
@@ -129,6 +79,7 @@ export function handleCallbackQuery(bot, callbackQuery) {
       break;
 
     case MESSAGES.CALLBACK_DATA.MAIN_MENU:
+      bot.answerCallbackQuery(callbackQuery.id, { text: 'Главное меню' });
       bot.sendMessage(chatId, MESSAGES.WELCOME, createMainKeyboard());
       break;
 
@@ -173,26 +124,6 @@ export function handleCallbackQuery(bot, callbackQuery) {
       // Для остальных callback обрабатываем как текстовое сообщение
       handleTextMessage(bot, chatId, data);
       break;
-  }
-}
-
-/**
- * Выполняет расчёт и отправляет результат
- */
-function performCalculation(bot, chatId, _session) {
-  try {
-    // Используем новую логику калькулятора
-    completeCalculation(chatId, bot);
-
-    // Сбрасываем сессию после расчёта
-    sessionStore.deleteSession(chatId);
-  } catch (error) {
-    console.error('Ошибка при расчёте:', error);
-    bot.sendMessage(
-      chatId,
-      '❌ Произошла ошибка при расчёте. Попробуйте ещё раз.',
-      createBackToMainKeyboard()
-    );
   }
 }
 

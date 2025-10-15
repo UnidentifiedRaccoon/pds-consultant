@@ -12,7 +12,6 @@ export {
   updateCalculatorSession,
   deleteCalculatorSession,
   cleanupExpiredSessions,
-  getCalculatorStats,
   startSessionCleanup,
 } from './state.js';
 

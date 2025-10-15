@@ -1,10 +1,10 @@
 import { tryLock, unlock } from './antiFlood.js';
 import {
-  handlePDSStartCommand,
-  handlePDSMenuCommand,
-  handlePDSTextMessage,
-  handlePDSCallbackQuery,
-} from './pdsCalculator.js';
+  handleStartCommand,
+  handleMenuCommand,
+  handleTextMessage,
+  handleCallbackQuery,
+} from './handlers/menu.js';
 
 /**
  * Генерирует статический ответ на основе контекста сообщений
@@ -377,7 +377,7 @@ export function attachBotHandlers(bot) {
 
     // Используем новый ПДС-калькулятор для команды /start
     if (command === 'start') {
-      await handlePDSStartCommand(bot, chatId);
+      await handleStartCommand(bot, chatId);
     } else {
       await handleCommand(chatId, command, bot);
     }
@@ -386,7 +386,7 @@ export function attachBotHandlers(bot) {
   // Обработчик команды /menu для ПДС-калькулятора
   bot.onText(/^\/menu\b/, async (msg) => {
     const chatId = msg.chat.id;
-    await handlePDSMenuCommand(bot, chatId);
+    await handleMenuCommand(bot, chatId);
   });
 
   // Обработчик текстовых команд
@@ -423,7 +423,7 @@ export function attachBotHandlers(bot) {
       text.includes('✅ Да') ||
       text.includes('❌ Нет')
     ) {
-      await handlePDSTextMessage(bot, chatId, text);
+      await handleTextMessage(bot, chatId, text);
       return;
     }
 
@@ -438,7 +438,7 @@ export function attachBotHandlers(bot) {
     // Проверяем, находится ли пользователь в процессе FSM-калькулятора
     const fsmSession = sessionStore.getSession(chatId);
     if (fsmSession && fsmSession.state && fsmSession.state !== 'idle') {
-      await handlePDSTextMessage(bot, chatId, text);
+      await handleTextMessage(bot, chatId, text);
       return;
     }
 
@@ -537,7 +537,7 @@ export function attachBotHandlers(bot) {
         data === MESSAGES.CALLBACK_DATA.INFO ||
         data === MESSAGES.CALLBACK_DATA.CONSULTATION
       ) {
-        await handlePDSCallbackQuery(bot, callbackQuery);
+        await handleCallbackQuery(bot, callbackQuery);
         return;
       }
       // Обработка PDF-генерации
