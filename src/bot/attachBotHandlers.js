@@ -356,7 +356,11 @@ async function handleCommand(chatId, command, bot) {
       break;
     case 'info': {
       const keyboard = createInfoKeyboard();
-      await bot.sendMessage(chatId, MESSAGES.INFO_ABOUT_PDS, keyboard);
+      await bot.sendMessage(chatId, MESSAGES.INFO_ABOUT_PDS, {
+        ...keyboard,
+        parse_mode: 'HTML',
+        disable_web_page_preview: true,
+      });
       break;
     }
     default:

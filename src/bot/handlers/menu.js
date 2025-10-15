@@ -102,11 +102,19 @@ export function handleCallbackQuery(bot, callbackQuery) {
       break;
 
     case MESSAGES.CALLBACK_DATA.INFO:
-      bot.sendMessage(chatId, MESSAGES.INFO_ABOUT_PDS, createInfoKeyboard());
+      bot.sendMessage(chatId, MESSAGES.INFO_ABOUT_PDS, {
+        ...createInfoKeyboard(),
+        parse_mode: 'HTML',
+        disable_web_page_preview: true,
+      });
       break;
 
     case MESSAGES.CALLBACK_DATA.CONSULTATION:
-      bot.sendMessage(chatId, MESSAGES.INFO_ABOUT_PDS, createInfoKeyboard());
+      bot.sendMessage(chatId, MESSAGES.INFO_ABOUT_PDS, {
+        ...createInfoKeyboard(),
+        parse_mode: 'HTML',
+        disable_web_page_preview: true,
+      });
       break;
 
     case MESSAGES.CALLBACK_DATA.MAIN_MENU:
