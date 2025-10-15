@@ -5,7 +5,6 @@
 
 // Константы
 const ANNUAL_RETURN = 0.1; // 10% годовых по умолчанию
-const MONTHLY_RATE = Math.pow(1 + ANNUAL_RETURN, 1 / 12) - 1;
 const GOV_MAX_PER_YEAR = 36000; // Максимальная господдержка в год
 const GOV_YEARS_MAX = 10; // Максимум лет господдержки
 const DEDUCT_BASE_LIMIT = 400000; // Лимит базы для налогового вычета
@@ -40,6 +39,12 @@ const LIFETIME_COEFFICIENTS = {
   },
 };
 
+// Пенсионный возраст
+const RETIREMENT_AGE = {
+  m: 60, // мужчины
+  f: 55, // женщины
+};
+
 /**
  * Получает коэффициент матчинга по доходу
  * @param {number} incomeMonthly - Среднемесячный доход
@@ -53,6 +58,20 @@ function getMatchRate(incomeMonthly) {
   } else {
     return MATCH_RATES.HIGH.rate;
   }
+}
+
+/**
+ * Определяет время начала выплат по общему правилу
+ * @param {string} sex - Пол ('m' или 'f')
+ * @param {number} age - Текущий возраст
+ * @returns {number} Количество лет до начала выплат
+ */
+export function getPayoutYearsByRule(sex, age) {
+  const retirementAge = RETIREMENT_AGE[sex];
+  const yearsToRetirement = retirementAge - age;
+  const yearsByRule = 15; // Минимум 15 лет участия
+
+  return Math.max(yearsToRetirement, yearsByRule);
 }
 
 /**
@@ -83,14 +102,7 @@ export function calcTaxDeductionForYear(yearPersonal, taxRate, usedOtherLimit = 
   return taxRate * base;
 }
 
-/**
- * Капитализация в течение месяца
- * @param {number} capital - Текущий капитал
- * @returns {number} Капитал после капитализации
- */
-function accrueMonth(capital) {
-  return capital * (1 + MONTHLY_RATE);
-}
+// Удалена неиспользуемая функция accrueMonth
 
 /**
  * Основная функция симуляции накопления
@@ -110,7 +122,7 @@ export function simulateAccumulation(params) {
     usedOtherLimitByYear = {},
     startCapital = 0, // eslint-disable-line no-unused-vars
     opsTransfer = 0, // eslint-disable-line no-unused-vars
-    annualReturn = ANNUAL_RETURN, // eslint-disable-line no-unused-vars
+    annualReturn = ANNUAL_RETURN,
   } = params;
 
   // Валидация входных данных
@@ -131,7 +143,7 @@ export function simulateAccumulation(params) {
   }
 
   const years = horizonYears;
-  // const monthlyRate = Math.pow(1 + annualReturn, 1 / 12) - 1; // Не используется в текущей реализации
+  const monthlyRate = Math.pow(1 + annualReturn, 1 / 12) - 1;
 
   let K = startCapital + opsTransfer; // Стартовая база
   let personalTotal = 0;
@@ -158,14 +170,19 @@ export function simulateAccumulation(params) {
       for (let m = 1; m <= 12; m++) {
         K += monthlyContrib;
         yearPersonal += monthlyContrib;
-        K = accrueMonth(K);
+        K = K * (1 + monthlyRate); // Используем переданную доходность
       }
     } else if (annualContrib > 0) {
       // Годовой взнос равными долями помесячно
       yearPersonal = annualContrib;
       for (let m = 1; m <= 12; m++) {
         K += annualContrib / 12;
-        K = accrueMonth(K);
+        K = K * (1 + monthlyRate); // Используем переданную доходность
+      }
+    } else {
+      // Только капитализация без взносов
+      for (let m = 1; m <= 12; m++) {
+        K = K * (1 + monthlyRate);
       }
     }
 
@@ -280,14 +297,11 @@ export function solveMonthlyContribForTargetPayment(
   federalPM = 12000
 ) {
   const {
-    sex, // eslint-disable-line no-unused-vars
+    sex,
     age,
     horizonYears,
-    incomeMonthly, // eslint-disable-line no-unused-vars
-    taxRate, // eslint-disable-line no-unused-vars
-    reinvestTax, // eslint-disable-line no-unused-vars
-    startCapital, // eslint-disable-line no-unused-vars
-    opsTransfer, // eslint-disable-line no-unused-vars
+    usedOtherLimitByYear = {},
+    annualReturn = ANNUAL_RETURN,
   } = params;
 
   // Определяем возраст начала выплат
@@ -305,6 +319,8 @@ export function solveMonthlyContribForTargetPayment(
       ...params,
       monthlyContrib: m,
       annualContrib: 0,
+      annualReturn,
+      usedOtherLimitByYear,
     };
 
     try {
@@ -339,6 +355,8 @@ export function solveMonthlyContribForTargetPayment(
     ...params,
     monthlyContrib: bestM,
     annualContrib: 0,
+    annualReturn,
+    usedOtherLimitByYear,
   };
 
   const sim = simulateAccumulation(finalParams);
@@ -388,6 +406,20 @@ export function computeCapitalAtStart(params) {
  */
 export function computeFromContrib(params) {
   return computeCapitalAtStart(params);
+}
+
+/**
+ * Форматирует число как денежную сумму
+ * @param {number} amount - Сумма
+ * @returns {string} Отформатированная строка
+ */
+export function formatCurrency(amount) {
+  return new Intl.NumberFormat('ru-RU', {
+    style: 'currency',
+    currency: 'RUB',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(amount);
 }
 
 /**

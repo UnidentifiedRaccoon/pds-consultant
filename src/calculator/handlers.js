@@ -14,9 +14,13 @@ import {
   validateGender,
   validateAge,
   validateIncome,
+  validateTargetPayment,
   validatePayoutYears,
+  validateExpectedReturn,
   validateStartingCapital,
+  validateOpsTransfer,
   validateTaxRate,
+  validateUsedOtherLimit,
   validateYesNo,
   getErrorMessage,
 } from './validators.js';
@@ -103,14 +107,26 @@ export async function handleUserInput(chatId, input, bot) {
     case CALCULATOR_STEPS.INCOME:
       validation = validateIncome(input);
       break;
+    case CALCULATOR_STEPS.TARGET_PAYMENT:
+      validation = validateTargetPayment(input);
+      break;
     case CALCULATOR_STEPS.PAYOUT_YEARS:
       validation = validatePayoutYears(input);
+      break;
+    case CALCULATOR_STEPS.EXPECTED_RETURN:
+      validation = validateExpectedReturn(input);
       break;
     case CALCULATOR_STEPS.STARTING_CAPITAL:
       validation = validateStartingCapital(input);
       break;
+    case CALCULATOR_STEPS.OPS_TRANSFER:
+      validation = validateOpsTransfer(input);
+      break;
     case CALCULATOR_STEPS.TAX_RATE:
       validation = validateTaxRate(input);
+      break;
+    case CALCULATOR_STEPS.USED_OTHER_LIMIT:
+      validation = validateUsedOtherLimit(input);
       break;
     case CALCULATOR_STEPS.REINVEST_TAX:
       validation = validateYesNo(input);
@@ -168,11 +184,16 @@ export async function handlePayoutStartSelection(chatId, payoutMode, bot) {
   const newData = { ...session.data, payoutStartMode: payoutMode };
 
   if (payoutMode === 'rule') {
-    // По общему правилу - переходим к следующему шагу
+    // По общему правилу - рассчитываем количество лет и переходим к следующему шагу
+    const { getPayoutYearsByRule } = await import('./calculations.js');
+    const yearsByRule = getPayoutYearsByRule(session.data.gender, session.data.age);
+
+    const dataWithYears = { ...newData, payoutYears: yearsByRule };
     const nextStep = getNextStep(CALCULATOR_STEPS.PAYOUT_START);
+
     updateCalculatorSession(chatId, {
       step: nextStep,
-      data: newData,
+      data: dataWithYears,
       retries: 0,
     });
     await askNextQuestion(chatId, bot, { ...session, step: nextStep });
@@ -250,14 +271,115 @@ export async function completeCalculation(chatId, bot) {
   // Показываем сообщение о завершении сбора данных
   await bot.sendMessage(chatId, MESSAGES.DATA_COLLECTION_COMPLETE);
 
-  // Заглушка расчета - просто показываем собранные данные
-  const result = generateCalculationResult(session.data);
-  await bot.sendMessage(chatId, result);
+  try {
+    // Выполняем расчет в зависимости от цели
+    const result = await performCalculation(session);
+    await bot.sendMessage(chatId, result);
+  } catch (error) {
+    logger.error({ chatId, error }, 'calculator:calculation:error');
+    await bot.sendMessage(chatId, 'Произошла ошибка при расчете. Попробуйте еще раз.');
+  }
 
   // Удаляем сессию и показываем главное меню
   deleteCalculatorSession(chatId);
   const keyboard = createBackToMainKeyboard();
   await bot.sendMessage(chatId, 'Выбери действие:', keyboard);
+}
+
+/**
+ * Выполняет расчет в зависимости от цели
+ * @param {Object} session - Сессия калькулятора
+ * @returns {string} Результат расчета
+ */
+async function performCalculation(session) {
+  const { goal, data } = session;
+
+  if (goal === CALCULATION_GOALS.ADDITIONAL_PAYMENT) {
+    return await calculateAdditionalPayment(data);
+  } else {
+    // Для других целей показываем заглушку
+    return generateCalculationResult(data);
+  }
+}
+
+/**
+ * Рассчитывает дополнительную выплату
+ * @param {Object} data - Собранные данные
+ * @returns {string} Результат расчета
+ */
+async function calculateAdditionalPayment(data) {
+  const { solveMonthlyContribForTargetPayment, buildReport, formatCurrency } = await import(
+    './calculations.js'
+  );
+
+  // Подготавливаем параметры для расчета
+  const params = {
+    sex: data.gender,
+    age: data.age,
+    horizonYears: data.payoutYears,
+    incomeMonthly: data.income,
+    taxRate: data.taxRate / 100, // Конвертируем в доли
+    reinvestTax: data.reinvestTax,
+    startCapital: data.startingCapital || 0,
+    opsTransfer: data.opsTransfer || 0,
+    usedOtherLimitByYear: { 1: data.usedOtherLimit || 0 }, // Упрощенно для первого года
+    annualReturn: data.expectedReturn || 0.05, // 5% по умолчанию
+  };
+
+  // Определяем тип выплаты (по умолчанию пожизненная)
+  const payoutType = 'life';
+  const targetPayment = data.targetPayment;
+
+  try {
+    // Выполняем расчет
+    const result = solveMonthlyContribForTargetPayment(params, targetPayment, payoutType);
+
+    // Формируем отчет
+    const report = buildReport(result, params);
+
+    // Форматируем результат
+    return formatAdditionalPaymentResult(report, result, data, formatCurrency);
+  } catch (error) {
+    logger.error({ error, data }, 'calculator:additional_payment:error');
+    throw new Error('Не удалось выполнить расчет для заданных параметров');
+  }
+}
+
+/**
+ * Форматирует результат расчета дополнительной выплаты
+ * @param {Object} report - Отчет расчета
+ * @param {Object} result - Результат расчета
+ * @param {Object} data - Исходные данные
+ * @param {Function} formatCurrency - Функция форматирования валюты
+ * @returns {string} Отформатированный результат
+ */
+function formatAdditionalPaymentResult(report, result, data, formatCurrency) {
+  return `💰 Результат расчета дополнительной выплаты
+
+📋 Исходные данные:
+👤 Пол: ${data.gender === 'm' ? 'Мужской' : 'Женский'}
+🎂 Возраст: ${data.age} лет
+💵 Доход: ${formatCurrency(data.income)}/мес
+💸 Желаемая выплата: ${formatCurrency(data.targetPayment)}/мес
+📅 Начало выплат: ${data.payoutStartMode === 'rule' ? 'По общему правилу' : `Через ${data.payoutYears} лет`}
+📈 Ожидаемая доходность: ${(data.expectedReturn * 100).toFixed(1)}%
+💰 Стартовый капитал: ${formatCurrency(data.startingCapital || 0)}
+🏦 Перевод ОПС: ${formatCurrency(data.opsTransfer || 0)}
+📊 Ставка НДФЛ: ${data.taxRate}%
+🔄 Реинвестирование вычета: ${data.reinvestTax ? 'Да' : 'Нет'}
+
+📊 Результаты:
+1️⃣ ${report[1].label}: ${formatCurrency(report[1].value)}
+2️⃣ ${report[2].label}: ${formatCurrency(report[2].value)}
+3️⃣ ${report[3].label}: ${formatCurrency(report[3].value)}
+4️⃣ ${report[4].label}: ${formatCurrency(report[4].value)}
+5️⃣ ${report[5].label}: ${formatCurrency(report[5].value)}
+6️⃣ ${report[6].label}: ${formatCurrency(report[6].value)}
+
+7️⃣ ${report[7].label}:
+• Пожизненно: ${formatCurrency(report[7].value.пожизненно)}
+• В течение 10 лет: ${formatCurrency(report[7].value['в течение 10 лет'])}
+• Единовременная: ${formatCurrency(report[7].value.единовременная)}`;
 }
 
 /**
