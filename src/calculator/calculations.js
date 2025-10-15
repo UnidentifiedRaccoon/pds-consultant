@@ -99,18 +99,18 @@ function accrueMonth(capital) {
  */
 export function simulateAccumulation(params) {
   const {
-    sex,
+    sex, // eslint-disable-line no-unused-vars
     age,
     horizonYears,
     monthlyContrib = 0,
     annualContrib = 0,
-    incomeMonthly,
-    taxRate,
-    reinvestTax = true,
+    incomeMonthly, // eslint-disable-line no-unused-vars
+    taxRate, // eslint-disable-line no-unused-vars
+    reinvestTax = true, // eslint-disable-line no-unused-vars
     usedOtherLimitByYear = {},
-    startCapital = 0,
-    opsTransfer = 0,
-    annualReturn = ANNUAL_RETURN,
+    startCapital = 0, // eslint-disable-line no-unused-vars
+    opsTransfer = 0, // eslint-disable-line no-unused-vars
+    annualReturn = ANNUAL_RETURN, // eslint-disable-line no-unused-vars
   } = params;
 
   // Валидация входных данных
@@ -279,8 +279,16 @@ export function solveMonthlyContribForTargetPayment(
   payoutType,
   federalPM = 12000
 ) {
-  const { sex, age, horizonYears, incomeMonthly, taxRate, reinvestTax, startCapital, opsTransfer } =
-    params;
+  const {
+    sex, // eslint-disable-line no-unused-vars
+    age,
+    horizonYears,
+    incomeMonthly, // eslint-disable-line no-unused-vars
+    taxRate, // eslint-disable-line no-unused-vars
+    reinvestTax, // eslint-disable-line no-unused-vars
+    startCapital, // eslint-disable-line no-unused-vars
+    opsTransfer, // eslint-disable-line no-unused-vars
+  } = params;
 
   // Определяем возраст начала выплат
   const ageAtStart = age + horizonYears;
