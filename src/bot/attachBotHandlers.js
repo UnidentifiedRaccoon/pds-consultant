@@ -511,7 +511,11 @@ export function attachBotHandlers(bot) {
         data.includes('main_menu') ||
         data.includes('payout_') ||
         data.includes('start_again') ||
-        data.includes('cancel')
+        data.includes('cancel') ||
+        data.includes('goal_') ||
+        data === MESSAGES.CALLBACK_DATA.CALCULATE ||
+        data === MESSAGES.CALLBACK_DATA.INFO ||
+        data === MESSAGES.CALLBACK_DATA.CONSULTATION
       ) {
         await handlePDSCallbackQuery(bot, callbackQuery);
         return;
