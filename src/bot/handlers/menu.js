@@ -4,12 +4,16 @@
 
 import { sessionStore } from '../session/memoryStore.js';
 import { getNextState } from '../state/machine.js';
+import { createBackToMainKeyboard } from '../keyboards.js';
 import {
-  createBackToMainKeyboard,
-  createResultInlineKeyboard,
-  createGenderKeyboard,
-} from '../keyboards.js';
-import { calculatePDS, formatCalculationResult } from '../calculator/pds.js';
+  handleGoalSelection,
+  handleUserInput,
+  handlePayoutStartSelection,
+  handleYesNoSelection,
+  completeCalculation,
+  isInCalculator,
+  CALCULATION_GOALS,
+} from '../../calculator/index.js';
 import {
   MESSAGES,
   createMainKeyboard,
@@ -39,6 +43,13 @@ export function handleMenuCommand(bot, chatId) {
  * Обработчик текстовых сообщений
  */
 export function handleTextMessage(bot, chatId, message) {
+  // Сначала проверяем, находится ли пользователь в процессе нового калькулятора
+  if (isInCalculator(chatId)) {
+    handleUserInput(chatId, message, bot);
+    return;
+  }
+
+  // Если не в калькуляторе, используем старую логику FSM
   let session = sessionStore.getSession(chatId);
 
   // Если сессии нет, создаём новую
@@ -121,29 +132,41 @@ export function handleCallbackQuery(bot, callbackQuery) {
       bot.sendMessage(chatId, MESSAGES.WELCOME, createMainKeyboard());
       break;
 
-    // Обработка кнопок сценариев расчёта
+    // Обработка кнопок сценариев расчёта - используем новую логику калькулятора
     case MESSAGES.CALLBACK_DATA.GOAL_ADDITIONAL_PAYMENT:
-      // Переводим в состояние выбора пола для сценария "Дополнительная выплата"
-      session.state = 'gender_selection';
-      session.data = { scenario: 'additional_payment' };
-      sessionStore.updateSession(session);
-      bot.sendMessage(chatId, '👤 Выберите пол для обращения:', createGenderKeyboard());
+      bot.answerCallbackQuery(callbackQuery.id, { text: 'Выбрана дополнительная выплата' });
+      handleGoalSelection(chatId, CALCULATION_GOALS.ADDITIONAL_PAYMENT, bot);
       break;
 
     case MESSAGES.CALLBACK_DATA.GOAL_CAPITAL_TO_PAYOUT:
-      // Переводим в состояние выбора пола для сценария "Капитал к началу выплат"
-      session.state = 'gender_selection';
-      session.data = { scenario: 'capital_to_payout' };
-      sessionStore.updateSession(session);
-      bot.sendMessage(chatId, '👤 Выберите пол для обращения:', createGenderKeyboard());
+      bot.answerCallbackQuery(callbackQuery.id, { text: 'Выбран капитал к началу выплат' });
+      handleGoalSelection(chatId, CALCULATION_GOALS.CAPITAL_TO_PAYOUT, bot);
       break;
 
     case MESSAGES.CALLBACK_DATA.GOAL_NO_GOAL:
-      // Переводим в состояние выбора пола для сценария "Без цели"
-      session.state = 'gender_selection';
-      session.data = { scenario: 'no_goal' };
-      sessionStore.updateSession(session);
-      bot.sendMessage(chatId, '👤 Выберите пол для обращения:', createGenderKeyboard());
+      bot.answerCallbackQuery(callbackQuery.id, { text: 'Выбрано без цели' });
+      handleGoalSelection(chatId, CALCULATION_GOALS.NO_GOAL, bot);
+      break;
+
+    // Обработка callback-запросов для новой логики калькулятора
+    case MESSAGES.CALLBACK_DATA.PAYOUT_BY_RULE:
+      bot.answerCallbackQuery(callbackQuery.id, { text: 'По общему правилу' });
+      handlePayoutStartSelection(chatId, 'rule', bot);
+      break;
+
+    case MESSAGES.CALLBACK_DATA.PAYOUT_IN_YEARS:
+      bot.answerCallbackQuery(callbackQuery.id, { text: 'Через N лет' });
+      handlePayoutStartSelection(chatId, 'years', bot);
+      break;
+
+    case MESSAGES.CALLBACK_DATA.YES:
+      bot.answerCallbackQuery(callbackQuery.id, { text: 'Да' });
+      handleYesNoSelection(chatId, true, bot);
+      break;
+
+    case MESSAGES.CALLBACK_DATA.NO:
+      bot.answerCallbackQuery(callbackQuery.id, { text: 'Нет' });
+      handleYesNoSelection(chatId, false, bot);
       break;
 
     default:
@@ -156,18 +179,10 @@ export function handleCallbackQuery(bot, callbackQuery) {
 /**
  * Выполняет расчёт и отправляет результат
  */
-function performCalculation(bot, chatId, session) {
+function performCalculation(bot, chatId, _session) {
   try {
-    const result = calculatePDS(session.data);
-    const formattedResult = formatCalculationResult(result);
-
-    const message = `📊 Результат расчёта ПДС
-
-${formattedResult}
-
-💡 Это предварительный расчёт. Для точных данных обратитесь к финансовому консультанту.`;
-
-    bot.sendMessage(chatId, message, createResultInlineKeyboard());
+    // Используем новую логику калькулятора
+    completeCalculation(chatId, bot);
 
     // Сбрасываем сессию после расчёта
     sessionStore.deleteSession(chatId);

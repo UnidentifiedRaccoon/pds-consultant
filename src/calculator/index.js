@@ -1,11 +1,10 @@
 /**
- * Главный модуль пошагового калькулятора ПДС
- * Экспортирует все необходимые функции для интеграции с ботом
+ * Главный файл калькулятора ПДС
+ * Экспортирует все функции для работы с калькулятором
  */
 
-// Экспортируем все из модулей
+// Экспорт функций состояния
 export {
-  // Состояние
   CALCULATOR_STEPS,
   CALCULATION_GOALS,
   createCalculatorSession,
@@ -17,20 +16,32 @@ export {
   startSessionCleanup,
 } from './state.js';
 
+// Экспорт функций валидации
 export {
-  // Валидаторы
   validateGender,
   validateAge,
   validateIncome,
+  validateTargetPayment,
   validatePayoutYears,
+  validateExpectedReturn,
   validateStartingCapital,
+  validateOpsTransfer,
   validateTaxRate,
+  validateUsedOtherLimit,
   validateYesNo,
   getErrorMessage,
 } from './validators.js';
 
+// Экспорт функций вопросов
 export {
-  // Обработчики
+  askNextQuestion,
+  showGoalSelection,
+  handleTooManyErrors,
+  getNextStep,
+} from './questions.js';
+
+// Экспорт функций обработчиков
+export {
   startCalculator,
   handleGoalSelection,
   handleUserInput,
@@ -42,10 +53,12 @@ export {
   isInCalculator,
 } from './handlers.js';
 
+// Экспорт функций расчетов
 export {
-  // Вопросы
-  askNextQuestion,
-  showGoalSelection,
-  handleTooManyErrors,
-  getNextStep,
-} from './questions.js';
+  solveMonthlyContribForTargetPayment,
+  computeCapitalAtStart,
+  computeFromContrib,
+  buildReport,
+  formatCurrency,
+  getPayoutYearsByRule,
+} from './calculations.js';
