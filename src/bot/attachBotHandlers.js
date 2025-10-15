@@ -117,6 +117,7 @@ import {
   setChatState,
   getChatState,
 } from '../storage/chatContext.js';
+import { sessionStore } from './session/memoryStore.js';
 import { generatePdfReport } from '../pdf/pdfGenerator.js';
 
 /**
@@ -412,7 +413,15 @@ export function attachBotHandlers(bot) {
       text.includes('💰 Дополнительная выплата') ||
       text.includes('🏦 Капитал к началу выплат') ||
       text.includes('💸 Без цели — расчёт от взноса') ||
-      text.includes('🏠 Главное меню')
+      text.includes('🏠 Главное меню') ||
+      text.includes('👨 Мужчина') ||
+      text.includes('👩 Женщина') ||
+      text.includes('📅 Ежемесячно') ||
+      text.includes('📆 Ежегодно') ||
+      text.includes('📅 По общему правилу') ||
+      text.includes('⏰ Через N лет') ||
+      text.includes('✅ Да') ||
+      text.includes('❌ Нет')
     ) {
       await handlePDSTextMessage(bot, chatId, text);
       return;
@@ -424,6 +433,13 @@ export function attachBotHandlers(bot) {
       if (handled) {
         return; // Обработано калькулятором
       }
+    }
+
+    // Проверяем, находится ли пользователь в процессе FSM-калькулятора
+    const fsmSession = sessionStore.getSession(chatId);
+    if (fsmSession && fsmSession.state && fsmSession.state !== 'idle') {
+      await handlePDSTextMessage(bot, chatId, text);
+      return;
     }
 
     // Проверяем состояние чата - если ожидается подтверждение данных, игнорируем текстовые сообщения
