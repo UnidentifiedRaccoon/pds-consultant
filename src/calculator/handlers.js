@@ -1,6 +1,5 @@
 /**
- * Пошаговый калькулятор ПДС
- * Управляет процессом сбора данных и валидации
+ * Обработчики событий пошагового калькулятора
  */
 
 import {
@@ -10,15 +9,7 @@ import {
   getCalculatorSession,
   updateCalculatorSession,
   deleteCalculatorSession,
-} from '../storage/calculatorState.js';
-import {
-  MESSAGES,
-  createGoalSelectionKeyboard,
-  createPayoutStartKeyboard,
-  createYesNoKeyboard,
-  createTooManyErrorsKeyboard,
-  createBackToMainKeyboard,
-} from './messages.js';
+} from './state.js';
 import {
   validateGender,
   validateAge,
@@ -29,6 +20,13 @@ import {
   validateYesNo,
   getErrorMessage,
 } from './validators.js';
+import {
+  askNextQuestion,
+  showGoalSelection,
+  handleTooManyErrors,
+  getNextStep,
+} from './questions.js';
+import { createBackToMainKeyboard, MESSAGES } from '../bot/messages.js';
 import { logger } from '../logger.js';
 
 const MAX_RETRIES = 3;
@@ -52,16 +50,6 @@ export async function startCalculator(chatId, bot) {
 }
 
 /**
- * Показывает выбор цели расчета
- * @param {number} chatId - ID чата
- * @param {Object} bot - Экземпляр бота
- */
-async function showGoalSelection(chatId, bot) {
-  const keyboard = createGoalSelectionKeyboard();
-  await bot.sendMessage(chatId, MESSAGES.CALCULATOR_GOAL_SELECTION, keyboard);
-}
-
-/**
  * Обрабатывает выбор цели
  * @param {number} chatId - ID чата
  * @param {string} goal - Выбранная цель
@@ -79,68 +67,13 @@ export async function handleGoalSelection(chatId, goal, bot) {
 
   if (goal === CALCULATION_GOALS.ADDITIONAL_PAYMENT) {
     // Начинаем пошаговый опрос
-    await askNextQuestion(chatId, bot);
+    await askNextQuestion(chatId, bot, session);
   } else {
     // Показываем заглушку для других целей
     await bot.sendMessage(chatId, MESSAGES.FEATURE_IN_DEVELOPMENT);
     const keyboard = createBackToMainKeyboard();
     await bot.sendMessage(chatId, 'Выбери действие:', keyboard);
     deleteCalculatorSession(chatId);
-  }
-}
-
-/**
- * Задает следующий вопрос в зависимости от текущего шага
- * @param {number} chatId - ID чата
- * @param {Object} bot - Экземпляр бота
- */
-async function askNextQuestion(chatId, bot) {
-  const session = getCalculatorSession(chatId);
-  if (!session) {
-    await startCalculator(chatId, bot);
-    return;
-  }
-
-  const { step } = session;
-  let question = '';
-  let keyboard = null;
-
-  switch (step) {
-    case CALCULATOR_STEPS.GENDER:
-      question = MESSAGES.CALCULATOR_QUESTIONS.GENDER;
-      break;
-    case CALCULATOR_STEPS.AGE:
-      question = MESSAGES.CALCULATOR_QUESTIONS.AGE;
-      break;
-    case CALCULATOR_STEPS.INCOME:
-      question = MESSAGES.CALCULATOR_QUESTIONS.INCOME;
-      break;
-    case CALCULATOR_STEPS.PAYOUT_START:
-      question = MESSAGES.CALCULATOR_QUESTIONS.PAYOUT_START;
-      keyboard = createPayoutStartKeyboard();
-      break;
-    case CALCULATOR_STEPS.PAYOUT_YEARS:
-      question = MESSAGES.CALCULATOR_QUESTIONS.PAYOUT_YEARS;
-      break;
-    case CALCULATOR_STEPS.STARTING_CAPITAL:
-      question = MESSAGES.CALCULATOR_QUESTIONS.STARTING_CAPITAL;
-      break;
-    case CALCULATOR_STEPS.TAX_RATE:
-      question = MESSAGES.CALCULATOR_QUESTIONS.TAX_RATE;
-      break;
-    case CALCULATOR_STEPS.REINVEST_TAX:
-      question = MESSAGES.CALCULATOR_QUESTIONS.REINVEST_TAX;
-      keyboard = createYesNoKeyboard();
-      break;
-    default:
-      await completeCalculation(chatId, bot);
-      return;
-  }
-
-  if (keyboard) {
-    await bot.sendMessage(chatId, question, keyboard);
-  } else {
-    await bot.sendMessage(chatId, question);
   }
 }
 
@@ -201,7 +134,7 @@ export async function handleUserInput(chatId, input, bot) {
 
     // Показываем ошибку и повторяем вопрос
     await bot.sendMessage(chatId, getErrorMessage(validation.error));
-    await askNextQuestion(chatId, bot);
+    await askNextQuestion(chatId, bot, session);
     return true;
   }
 
@@ -215,7 +148,7 @@ export async function handleUserInput(chatId, input, bot) {
     retries: 0, // Сбрасываем счетчик ошибок
   });
 
-  await askNextQuestion(chatId, bot);
+  await askNextQuestion(chatId, bot, { ...session, step: nextStep });
   return true;
 }
 
@@ -242,7 +175,7 @@ export async function handlePayoutStartSelection(chatId, payoutMode, bot) {
       data: newData,
       retries: 0,
     });
-    await askNextQuestion(chatId, bot);
+    await askNextQuestion(chatId, bot, { ...session, step: nextStep });
   } else {
     // Через N лет - запрашиваем количество лет
     updateCalculatorSession(chatId, {
@@ -250,7 +183,7 @@ export async function handlePayoutStartSelection(chatId, payoutMode, bot) {
       data: newData,
       retries: 0,
     });
-    await askNextQuestion(chatId, bot);
+    await askNextQuestion(chatId, bot, { ...session, step: CALCULATOR_STEPS.PAYOUT_YEARS });
   }
 }
 
@@ -277,17 +210,7 @@ export async function handleYesNoSelection(chatId, value, bot) {
     retries: 0,
   });
 
-  await askNextQuestion(chatId, bot);
-}
-
-/**
- * Обрабатывает превышение лимита ошибок
- * @param {number} chatId - ID чата
- * @param {Object} bot - Экземпляр бота
- */
-async function handleTooManyErrors(chatId, bot) {
-  const keyboard = createTooManyErrorsKeyboard();
-  await bot.sendMessage(chatId, MESSAGES.TOO_MANY_ERRORS, keyboard);
+  await askNextQuestion(chatId, bot, { ...session, step: nextStep });
 }
 
 /**
@@ -317,7 +240,7 @@ export async function handleCancel(chatId, bot) {
  * @param {number} chatId - ID чата
  * @param {Object} bot - Экземпляр бота
  */
-async function completeCalculation(chatId, bot) {
+export async function completeCalculation(chatId, bot) {
   const session = getCalculatorSession(chatId);
   if (!session) {
     await startCalculator(chatId, bot);
@@ -354,28 +277,6 @@ function generateCalculationResult(data) {
 🔄 Реинвестирование вычета: ${data.reinvestTax ? 'Да' : 'Нет'}
 
 🛠️ Расчёт будет реализован в следующих версиях.`;
-}
-
-/**
- * Получает следующий шаг в последовательности
- * @param {string} currentStep - Текущий шаг
- * @returns {string} Следующий шаг
- */
-function getNextStep(currentStep) {
-  const stepOrder = [
-    CALCULATOR_STEPS.GENDER,
-    CALCULATOR_STEPS.AGE,
-    CALCULATOR_STEPS.INCOME,
-    CALCULATOR_STEPS.PAYOUT_START,
-    CALCULATOR_STEPS.PAYOUT_YEARS,
-    CALCULATOR_STEPS.STARTING_CAPITAL,
-    CALCULATOR_STEPS.TAX_RATE,
-    CALCULATOR_STEPS.REINVEST_TAX,
-    CALCULATOR_STEPS.COMPLETED,
-  ];
-
-  const currentIndex = stepOrder.indexOf(currentStep);
-  return stepOrder[currentIndex + 1] || CALCULATOR_STEPS.COMPLETED;
 }
 
 /**

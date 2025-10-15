@@ -100,8 +100,8 @@ import {
   handleStartAgain,
   handleCancel,
   isInCalculator,
-} from './calculator.js';
-import { CALCULATION_GOALS } from '../storage/calculatorState.js';
+  CALCULATION_GOALS,
+} from '../calculator/index.js';
 import { logger } from '../logger.js';
 import { markUpdateStart, markUpdateOk, markUpdateErr, markLlm } from '../metrics.js';
 import {

@@ -3,7 +3,7 @@ import { createServer } from './server/fastify.js';
 import { webhookBot } from './bot/webhookBot.js';
 import { longPollingBot } from './bot/longPollingBot.js';
 import { logger } from './logger.js';
-import { startSessionCleanup } from './storage/calculatorState.js';
+import { startSessionCleanup } from './calculator/index.js';
 
 const platformPort = process.env.PORT && Number(process.env.PORT);
 const PORT = platformPort || config.DEV_PORT; // в YC возьмём PORT, локально DEV_PORT
