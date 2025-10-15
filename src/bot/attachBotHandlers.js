@@ -1,4 +1,10 @@
 import { tryLock, unlock } from './antiFlood.js';
+import {
+  handlePDSStartCommand,
+  handlePDSMenuCommand,
+  handlePDSTextMessage,
+  handlePDSCallbackQuery,
+} from './pdsCalculator.js';
 
 /**
  * Генерирует статический ответ на основе контекста сообщений
@@ -363,7 +369,19 @@ export function attachBotHandlers(bot) {
   bot.onText(/^\/(start|clear)\b/, async (msg) => {
     const chatId = msg.chat.id;
     const command = msg.text.split(' ')[0].substring(1); // убираем /
-    await handleCommand(chatId, command, bot);
+
+    // Используем новый ПДС-калькулятор для команды /start
+    if (command === 'start') {
+      await handlePDSStartCommand(bot, chatId);
+    } else {
+      await handleCommand(chatId, command, bot);
+    }
+  });
+
+  // Обработчик команды /menu для ПДС-калькулятора
+  bot.onText(/^\/menu\b/, async (msg) => {
+    const chatId = msg.chat.id;
+    await handlePDSMenuCommand(bot, chatId);
   });
 
   // Обработчик текстовых команд
@@ -384,6 +402,17 @@ export function attachBotHandlers(bot) {
     const chatId = msg.chat.id;
     const text = (msg.text ?? '').trim();
     if (!text || text.startsWith('/')) return;
+
+    // Проверяем, является ли сообщение кнопкой ПДС-калькулятора
+    if (
+      text.includes('💰 Дополнительная выплата') ||
+      text.includes('🏦 Капитал к началу выплат') ||
+      text.includes('💸 Без цели — расчёт от взноса') ||
+      text.includes('🏠 Главное меню')
+    ) {
+      await handlePDSTextMessage(bot, chatId, text);
+      return;
+    }
 
     // Проверяем, находится ли пользователь в процессе калькулятора
     if (isInCalculator(chatId)) {
@@ -475,6 +504,18 @@ export function attachBotHandlers(bot) {
     const data = callbackQuery.data;
 
     try {
+      // Сначала проверяем, является ли это callback-запросом ПДС-калькулятора
+      if (
+        data.includes('confirm_data') ||
+        data.includes('edit_data') ||
+        data.includes('main_menu') ||
+        data.includes('payout_') ||
+        data.includes('start_again') ||
+        data.includes('cancel')
+      ) {
+        await handlePDSCallbackQuery(bot, callbackQuery);
+        return;
+      }
       // Обработка PDF-генерации
       if (data === MESSAGES.CALLBACK_DATA.DOWNLOAD_PDF) {
         await bot.answerCallbackQuery(callbackQuery.id, { text: 'Генерирую PDF...' });
