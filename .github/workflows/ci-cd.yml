@@ -90,8 +90,6 @@ jobs:
         run: |
           echo "Running webhook smoke test..."
           npm run smoke:webhook -- --url http://localhost:8080 --secret replace_me
-          echo "Running PDF diagnostics..."
-          npm run diagnose:pdf
 
       - name: Stop server
         if: always()

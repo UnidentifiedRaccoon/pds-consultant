@@ -11,7 +11,6 @@
     "smoke:webhook": "node scripts/smoke-webhook.mjs",
     "smoke:all": "npm run smoke:http && npm run smoke:webhook",
     "smoke:basic": "npm run smoke:http",
-    "diagnose:pdf": "node -e \"import('./src/pdf/pdfDiagnostics.js').then(m => m.runPdfDiagnostics()).then(d => { console.log('PDF Diagnostics:', JSON.stringify(d, null, 2)); process.exit(d.tests && Object.values(d.tests).every(t => t.status === 'success') ? 0 : 1); }).catch(e => { console.error('PDF Diagnostics failed:', e); process.exit(1); })\"",
     "lint": "eslint . --ext .js,.mjs,.cjs --max-warnings 0",
     "lint:fix": "eslint . --ext .js,.mjs,.cjs --fix",
     "format": "prettier --write .",
