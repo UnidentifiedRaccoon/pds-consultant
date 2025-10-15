@@ -4,12 +4,14 @@
 
 import { sessionStore } from '../session/memoryStore.js';
 import { getNextState } from '../state/machine.js';
-import {
-  createMainMenuKeyboard,
-  createBackToMainKeyboard,
-  createResultInlineKeyboard,
-} from '../keyboards.js';
+import { createBackToMainKeyboard, createResultInlineKeyboard } from '../keyboards.js';
 import { calculatePDS, formatCalculationResult } from '../calculator/pds.js';
+import {
+  MESSAGES,
+  createMainKeyboard,
+  createGoalSelectionKeyboard,
+  createInfoKeyboard,
+} from '../messages.js';
 
 /**
  * Обработчик команды /start
@@ -17,16 +19,7 @@ import { calculatePDS, formatCalculationResult } from '../calculator/pds.js';
 export function handleStartCommand(bot, chatId) {
   sessionStore.createSession(chatId);
 
-  const message = `👋 Привет! Я PDS Consultant.
-
-🎯 Что я умею:
-• 💰 Рассчитать необходимый взнос для желаемой выплаты
-• 🏦 Спрогнозировать капитал к определённому возрасту
-• 💸 Показать результат от регулярных взносов
-
-🚀 Выберите сценарий расчёта:`;
-
-  bot.sendMessage(chatId, message, createMainMenuKeyboard());
+  bot.sendMessage(chatId, MESSAGES.WELCOME, createMainKeyboard());
 }
 
 /**
@@ -35,11 +28,7 @@ export function handleStartCommand(bot, chatId) {
 export function handleMenuCommand(bot, chatId) {
   sessionStore.createSession(chatId);
 
-  const message = `🏠 Главное меню
-
-🎯 Выберите сценарий расчёта ПДС:`;
-
-  bot.sendMessage(chatId, message, createMainMenuKeyboard());
+  bot.sendMessage(chatId, MESSAGES.WELCOME, createMainKeyboard());
 }
 
 /**
@@ -102,8 +91,29 @@ export function handleCallbackQuery(bot, callbackQuery) {
     session = sessionStore.createSession(chatId);
   }
 
-  // Обрабатываем callback как текстовое сообщение
-  handleTextMessage(bot, chatId, data);
+  // Обрабатываем различные callback данные
+  switch (data) {
+    case MESSAGES.CALLBACK_DATA.CALCULATE:
+      bot.sendMessage(chatId, MESSAGES.CALCULATOR_GOAL_SELECTION, createGoalSelectionKeyboard());
+      break;
+
+    case MESSAGES.CALLBACK_DATA.INFO:
+      bot.sendMessage(chatId, MESSAGES.INFO_ABOUT_PDS, createInfoKeyboard());
+      break;
+
+    case MESSAGES.CALLBACK_DATA.CONSULTATION:
+      bot.sendMessage(chatId, MESSAGES.INFO_ABOUT_PDS, createInfoKeyboard());
+      break;
+
+    case MESSAGES.CALLBACK_DATA.MAIN_MENU:
+      bot.sendMessage(chatId, MESSAGES.WELCOME, createMainKeyboard());
+      break;
+
+    default:
+      // Для остальных callback обрабатываем как текстовое сообщение
+      handleTextMessage(bot, chatId, data);
+      break;
+  }
 }
 
 /**
