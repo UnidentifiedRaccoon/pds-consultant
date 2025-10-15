@@ -4,7 +4,11 @@
 
 import { sessionStore } from '../session/memoryStore.js';
 import { getNextState } from '../state/machine.js';
-import { createBackToMainKeyboard, createResultInlineKeyboard } from '../keyboards.js';
+import {
+  createBackToMainKeyboard,
+  createResultInlineKeyboard,
+  createGenderKeyboard,
+} from '../keyboards.js';
 import { calculatePDS, formatCalculationResult } from '../calculator/pds.js';
 import {
   MESSAGES,
@@ -107,6 +111,31 @@ export function handleCallbackQuery(bot, callbackQuery) {
 
     case MESSAGES.CALLBACK_DATA.MAIN_MENU:
       bot.sendMessage(chatId, MESSAGES.WELCOME, createMainKeyboard());
+      break;
+
+    // Обработка кнопок сценариев расчёта
+    case MESSAGES.CALLBACK_DATA.GOAL_ADDITIONAL_PAYMENT:
+      // Переводим в состояние выбора пола для сценария "Дополнительная выплата"
+      session.state = 'gender_selection';
+      session.data = { scenario: 'additional_payment' };
+      sessionStore.updateSession(session);
+      bot.sendMessage(chatId, '👤 Выберите пол для обращения:', createGenderKeyboard());
+      break;
+
+    case MESSAGES.CALLBACK_DATA.GOAL_CAPITAL_TO_PAYOUT:
+      // Переводим в состояние выбора пола для сценария "Капитал к началу выплат"
+      session.state = 'gender_selection';
+      session.data = { scenario: 'capital_to_payout' };
+      sessionStore.updateSession(session);
+      bot.sendMessage(chatId, '👤 Выберите пол для обращения:', createGenderKeyboard());
+      break;
+
+    case MESSAGES.CALLBACK_DATA.GOAL_NO_GOAL:
+      // Переводим в состояние выбора пола для сценария "Без цели"
+      session.state = 'gender_selection';
+      session.data = { scenario: 'no_goal' };
+      sessionStore.updateSession(session);
+      bot.sendMessage(chatId, '👤 Выберите пол для обращения:', createGenderKeyboard());
       break;
 
     default:
