@@ -9,7 +9,7 @@ import { config } from '../src/config/env.js';
     if (isCI) {
       // В CI проверяем внешний API
       console.log('Testing external API (CI mode)...');
-      await getJSON('https://httpbin.org/json');
+      await getJSON('https://jsonplaceholder.typicode.com/posts/1');
       console.log(`✅ HTTP test passed: External API is accessible`);
     } else {
       // Локально проверяем локальный сервер
