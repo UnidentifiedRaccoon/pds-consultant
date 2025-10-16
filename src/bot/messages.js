@@ -66,6 +66,11 @@ export const MESSAGES = {
     NO: 'no',
     START_AGAIN: 'start_again',
     CANCEL: 'cancel',
+    // Новые callback данные для сценариев 2 и 3
+    CONTRIBUTION_MONTHLY: 'contribution_monthly',
+    CONTRIBUTION_ANNUAL: 'contribution_annual',
+    HORIZON_BY_RULE: 'horizon_by_rule',
+    HORIZON_TO_AGE: 'horizon_to_age',
   },
 
   // ========================================
@@ -135,6 +140,12 @@ export const MESSAGES = {
     TAX_RATE: '📊 Укажи ставку НДФЛ: 13, 15, 18, 20 или 22 (%)',
     USED_OTHER_LIMIT: '📋 Уже использованный лимит по НПО/ИИС-3 (руб):',
     REINVEST_TAX: '🔄 Реинвестировать вычет?',
+    // Новые вопросы для сценариев 2 и 3
+    CONTRIBUTION_TYPE: '💳 Выберите тип взноса:',
+    MONTHLY_CONTRIBUTION: '💳 Ежемесячный взнос (руб/мес):',
+    ANNUAL_CONTRIBUTION: '💳 Ежегодный взнос (руб/год):',
+    HORIZON_TYPE: '📅 Выберите горизонт накопления:',
+    HORIZON_AGE: '🎂 До какого возраста накапливать (лет):',
   },
 
   /** Сообщения об ошибках валидации */
@@ -150,6 +161,10 @@ export const MESSAGES = {
     TAX_RATE: '⚠️ Допустимые значения: 13, 15, 18, 20, 22',
     USED_OTHER_LIMIT: '⚠️ Введи неотрицательное число (0, если не использован)',
     REINVEST_TAX: '⚠️ Выбери Да или Нет',
+    // Новые валидационные ошибки для сценариев 2 и 3
+    MONTHLY_CONTRIBUTION: '⚠️ Сумма от 0 до 2 000 000 руб/мес',
+    ANNUAL_CONTRIBUTION: '⚠️ Сумма от 0 до 24 000 000 руб/год',
+    HORIZON_AGE: '⚠️ Введи целое число от 18 до 100',
   },
 
   /** Сообщение о завершении сбора данных */
@@ -449,6 +464,68 @@ export function createTooManyErrorsKeyboard() {
           {
             text: MESSAGES.BUTTONS.CANCEL,
             callback_data: MESSAGES.CALLBACK_DATA.CANCEL,
+          },
+        ],
+        [
+          {
+            text: '🏠 Главное меню',
+            callback_data: MESSAGES.CALLBACK_DATA.MAIN_MENU,
+          },
+        ],
+      ],
+    },
+  };
+}
+
+/**
+ * Создает клавиатуру для выбора типа взноса
+ * @returns {Object} Объект клавиатуры для Telegram
+ */
+export function createContributionTypeKeyboard() {
+  return {
+    reply_markup: {
+      inline_keyboard: [
+        [
+          {
+            text: '💳 Ежемесячно',
+            callback_data: MESSAGES.CALLBACK_DATA.CONTRIBUTION_MONTHLY,
+          },
+        ],
+        [
+          {
+            text: '📅 Ежегодно',
+            callback_data: MESSAGES.CALLBACK_DATA.CONTRIBUTION_ANNUAL,
+          },
+        ],
+        [
+          {
+            text: '🏠 Главное меню',
+            callback_data: MESSAGES.CALLBACK_DATA.MAIN_MENU,
+          },
+        ],
+      ],
+    },
+  };
+}
+
+/**
+ * Создает клавиатуру для выбора горизонта накопления
+ * @returns {Object} Объект клавиатуры для Telegram
+ */
+export function createHorizonTypeKeyboard() {
+  return {
+    reply_markup: {
+      inline_keyboard: [
+        [
+          {
+            text: '📅 По общему правилу',
+            callback_data: MESSAGES.CALLBACK_DATA.HORIZON_BY_RULE,
+          },
+        ],
+        [
+          {
+            text: '🎂 До определенного возраста',
+            callback_data: MESSAGES.CALLBACK_DATA.HORIZON_TO_AGE,
           },
         ],
         [

@@ -220,6 +220,56 @@ export function validateUsedOtherLimit(input) {
 }
 
 /**
+ * Валидирует ежемесячный взнос
+ * @param {string} input - Ввод пользователя
+ * @returns {Object} Результат валидации
+ */
+export function validateMonthlyContribution(input) {
+  const cleaned = input.replace(/[\s₽,.]/g, '');
+  const amount = parseInt(cleaned, 10);
+  if (isNaN(amount) || !Number.isInteger(amount)) {
+    return { isValid: false, value: null, error: 'monthly_contribution' };
+  }
+  if (amount < 0 || amount > 2000000) {
+    return { isValid: false, value: null, error: 'monthly_contribution' };
+  }
+  return { isValid: true, value: amount, error: null };
+}
+
+/**
+ * Валидирует ежегодный взнос
+ * @param {string} input - Ввод пользователя
+ * @returns {Object} Результат валидации
+ */
+export function validateAnnualContribution(input) {
+  const cleaned = input.replace(/[\s₽,.]/g, '');
+  const amount = parseInt(cleaned, 10);
+  if (isNaN(amount) || !Number.isInteger(amount)) {
+    return { isValid: false, value: null, error: 'annual_contribution' };
+  }
+  if (amount < 0 || amount > 24000000) {
+    return { isValid: false, value: null, error: 'annual_contribution' };
+  }
+  return { isValid: true, value: amount, error: null };
+}
+
+/**
+ * Валидирует возраст для горизонта накопления
+ * @param {string} input - Ввод пользователя
+ * @returns {Object} Результат валидации
+ */
+export function validateHorizonAge(input) {
+  const age = parseInt(input.trim(), 10);
+  if (isNaN(age) || !Number.isInteger(age)) {
+    return { isValid: false, value: null, error: 'horizon_age' };
+  }
+  if (age < 18 || age > 100) {
+    return { isValid: false, value: null, error: 'horizon_age' };
+  }
+  return { isValid: true, value: age, error: null };
+}
+
+/**
  * Получает сообщение об ошибке по типу
  * @param {string} errorType - Тип ошибки
  * @returns {string} Сообщение об ошибке
@@ -237,6 +287,10 @@ export function getErrorMessage(errorType) {
     tax_rate: '⚠️ Допустимые значения: 13, 15, 18, 20, 22',
     used_other_limit: '⚠️ Введи неотрицательное число (0, если не использован)',
     reinvest_tax: '⚠️ Выбери Да или Нет',
+    // Новые ошибки для сценариев 2 и 3
+    monthly_contribution: '⚠️ Сумма от 0 до 2 000 000 руб/мес',
+    annual_contribution: '⚠️ Сумма от 0 до 24 000 000 руб/год',
+    horizon_age: '⚠️ Введи целое число от 18 до 100',
   };
 
   return errorMessages[errorType] || '⚠️ Неверный формат данных';

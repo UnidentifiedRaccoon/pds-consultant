@@ -22,6 +22,9 @@ import {
   validateTaxRate,
   validateUsedOtherLimit,
   validateYesNo,
+  validateMonthlyContribution,
+  validateAnnualContribution,
+  validateHorizonAge,
   getErrorMessage,
 } from './validators.js';
 import {
@@ -71,10 +74,13 @@ export async function handleGoalSelection(chatId, goal, bot) {
   }
 
   if (goal === CALCULATION_GOALS.ADDITIONAL_PAYMENT) {
-    // Начинаем пошаговый опрос
+    // Начинаем пошаговый опрос для сценария 1
+    await askNextQuestion(chatId, bot, session);
+  } else if (goal === CALCULATION_GOALS.CAPITAL_TO_PAYOUT || goal === CALCULATION_GOALS.NO_GOAL) {
+    // Начинаем пошаговый опрос для сценариев 2 и 3
     await askNextQuestion(chatId, bot, session);
   } else {
-    // Показываем заглушку для других целей
+    // Показываем заглушку для неизвестных целей
     await bot.sendMessage(chatId, MESSAGES.FEATURE_IN_DEVELOPMENT);
     const keyboard = createBackToMainKeyboard();
     await bot.sendMessage(chatId, 'Выбери действие:', keyboard);
@@ -132,6 +138,16 @@ export async function handleUserInput(chatId, input, bot) {
     case CALCULATOR_STEPS.REINVEST_TAX:
       validation = validateYesNo(input);
       break;
+    // Новые шаги для сценариев 2 и 3
+    case CALCULATOR_STEPS.MONTHLY_CONTRIBUTION:
+      validation = validateMonthlyContribution(input);
+      break;
+    case CALCULATOR_STEPS.ANNUAL_CONTRIBUTION:
+      validation = validateAnnualContribution(input);
+      break;
+    case CALCULATOR_STEPS.HORIZON_AGE:
+      validation = validateHorizonAge(input);
+      break;
     default:
       return false;
   }
@@ -156,7 +172,7 @@ export async function handleUserInput(chatId, input, bot) {
   }
 
   // Валидный ввод - сохраняем данные и переходим к следующему шагу
-  const nextStep = getNextStep(step);
+  const nextStep = getNextStep(step, session.goal);
   const newData = { ...session.data, [step]: validation.value };
 
   updateCalculatorSession(chatId, {
@@ -190,7 +206,7 @@ export async function handlePayoutStartSelection(chatId, payoutMode, bot) {
     const yearsByRule = getPayoutYearsByRule(session.data.gender, session.data.age);
 
     const dataWithYears = { ...newData, payoutYears: yearsByRule };
-    const nextStep = getNextStep(CALCULATOR_STEPS.PAYOUT_START);
+    const nextStep = getNextStep(CALCULATOR_STEPS.PAYOUT_START, session.goal);
 
     updateCalculatorSession(chatId, {
       step: nextStep,
@@ -224,7 +240,7 @@ export async function handleYesNoSelection(chatId, value, bot) {
 
   const { step } = session;
   const newData = { ...session.data, [step]: value };
-  const nextStep = getNextStep(step);
+  const nextStep = getNextStep(step, session.goal);
 
   updateCalculatorSession(chatId, {
     step: nextStep,
@@ -297,8 +313,12 @@ async function performCalculation(session) {
 
   if (goal === CALCULATION_GOALS.ADDITIONAL_PAYMENT) {
     return await calculateAdditionalPayment(data);
+  } else if (goal === CALCULATION_GOALS.CAPITAL_TO_PAYOUT) {
+    return await calculateCapitalAtStart(data);
+  } else if (goal === CALCULATION_GOALS.NO_GOAL) {
+    return await calculateFromContrib(data);
   } else {
-    // Для других целей показываем заглушку
+    // Для неизвестных целей показываем заглушку
     return generateCalculationResult(data);
   }
 }
@@ -384,6 +404,156 @@ function formatAdditionalPaymentResult(report, result, data, formatCurrency) {
 }
 
 /**
+ * Рассчитывает капитал к началу выплат (сценарий 2)
+ * @param {Object} data - Собранные данные
+ * @returns {string} Результат расчета
+ */
+async function calculateCapitalAtStart(data) {
+  const { computeCapitalAtStart, formatCurrency } = await import('./calculations.js');
+
+  // Подготавливаем параметры
+  const params = {
+    sex: data.gender,
+    age: data.age,
+    horizonYears: data.payoutYears || data.horizonAge - data.age,
+    incomeMonthly: data.income,
+    taxRate: data.taxRate / 100,
+    reinvestTax: data.reinvestTax,
+    startCapital: data.startingCapital || 0,
+    opsTransfer: data.opsTransfer || 0,
+    usedOtherLimitByYear: { 1: data.usedOtherLimit || 0 },
+    annualReturn: data.expectedReturn || 0.05,
+  };
+
+  // Добавляем взносы в зависимости от типа
+  if (data.contributionType === 'monthly') {
+    params.monthlyContrib = data.monthlyContribution || 0;
+  } else {
+    params.annualContrib = data.annualContribution || 0;
+  }
+
+  try {
+    const result = computeCapitalAtStart(params);
+    return formatCapitalAtStartResult(result, data, formatCurrency);
+  } catch (error) {
+    logger.error({ error, data }, 'calculator:capital_at_start:error');
+    throw new Error('Не удалось выполнить расчет для заданных параметров');
+  }
+}
+
+/**
+ * Рассчитывает от взноса (сценарий 3)
+ * @param {Object} data - Собранные данные
+ * @returns {string} Результат расчета
+ */
+async function calculateFromContrib(data) {
+  const { computeFromContrib, formatCurrency } = await import('./calculations.js');
+
+  // Подготавливаем параметры
+  const params = {
+    sex: data.gender,
+    age: data.age,
+    horizonYears: data.payoutYears || data.horizonAge - data.age,
+    incomeMonthly: data.income,
+    taxRate: data.taxRate / 100,
+    reinvestTax: data.reinvestTax,
+    startCapital: data.startingCapital || 0,
+    opsTransfer: data.opsTransfer || 0,
+    usedOtherLimitByYear: { 1: data.usedOtherLimit || 0 },
+    annualReturn: data.expectedReturn || 0.05,
+  };
+
+  // Добавляем взносы в зависимости от типа
+  if (data.contributionType === 'monthly') {
+    params.monthlyContrib = data.monthlyContribution || 0;
+  } else {
+    params.annualContrib = data.annualContribution || 0;
+  }
+
+  try {
+    const result = computeFromContrib(params);
+    return formatFromContribResult(result, data, formatCurrency);
+  } catch (error) {
+    logger.error({ error, data }, 'calculator:from_contrib:error');
+    throw new Error('Не удалось выполнить расчет для заданных параметров');
+  }
+}
+
+/**
+ * Форматирует результат расчета капитала к началу выплат
+ * @param {Object} result - Результат расчета
+ * @param {Object} data - Исходные данные
+ * @param {Function} formatCurrency - Функция форматирования валюты
+ * @returns {string} Отформатированный результат
+ */
+function formatCapitalAtStartResult(result, data, formatCurrency) {
+  return `🏦 Результат расчета капитала к началу выплат
+
+📊 Исходные данные:
+👤 Пол: ${data.gender === 'm' ? 'Мужской' : 'Женский'}
+🎂 Возраст: ${data.age} лет
+💵 Доход: ${formatCurrency(data.income)}/мес
+${
+  data.contributionType === 'monthly'
+    ? `💳 Ежемесячный взнос: ${formatCurrency(data.monthlyContribution)}/мес`
+    : `📅 Ежегодный взнос: ${formatCurrency(data.annualContribution)}/год`
+}
+📅 Горизонт: ${data.horizonType === 'rule' ? 'По общему правилу' : `До ${data.horizonAge} лет`}
+💰 Стартовый капитал: ${formatCurrency(data.startingCapital || 0)}
+🏦 Перевод ОПС: ${formatCurrency(data.opsTransfer || 0)}
+
+💰 Результат:
+1️⃣ Личные взносы: ${formatCurrency(result.breakdown.personalTotal)}
+2️⃣ Софинансирование государства: ${formatCurrency(result.breakdown.govTotal)}
+3️⃣ Перевод пенсионных сбережений (ОПС): ${formatCurrency(result.breakdown.opsTotal)}
+4️⃣ Инвестиционный доход: ${formatCurrency(result.breakdown.investIncome)}
+5️⃣ Налоговый вычет: ${formatCurrency(result.breakdown.taxTotal)}
+
+💎 Итоговый капитал: ${formatCurrency(result.capitalFinal)}
+
+📈 Возможные выплаты:
+• Пожизненно: ${formatCurrency(result.payoutsPreview.life)}
+• В течение 10 лет: ${formatCurrency(result.payoutsPreview.tenYears)}`;
+}
+
+/**
+ * Форматирует результат расчета от взноса
+ * @param {Object} result - Результат расчета
+ * @param {Object} data - Исходные данные
+ * @param {Function} formatCurrency - Функция форматирования валюты
+ * @returns {string} Отформатированный результат
+ */
+function formatFromContribResult(result, data, formatCurrency) {
+  return `💸 Результат расчета от взноса
+
+📊 Исходные данные:
+👤 Пол: ${data.gender === 'm' ? 'Мужской' : 'Женский'}
+🎂 Возраст: ${data.age} лет
+💵 Доход: ${formatCurrency(data.income)}/мес
+${
+  data.contributionType === 'monthly'
+    ? `💳 Ежемесячный взнос: ${formatCurrency(data.monthlyContribution)}/мес`
+    : `📅 Ежегодный взнос: ${formatCurrency(data.annualContribution)}/год`
+}
+📅 Горизонт: ${data.horizonType === 'rule' ? 'По общему правилу' : `До ${data.horizonAge} лет`}
+💰 Стартовый капитал: ${formatCurrency(data.startingCapital || 0)}
+🏦 Перевод ОПС: ${formatCurrency(data.opsTransfer || 0)}
+
+💰 Результат:
+1️⃣ Личные взносы: ${formatCurrency(result.breakdown.personalTotal)}
+2️⃣ Софинансирование государства: ${formatCurrency(result.breakdown.govTotal)}
+3️⃣ Перевод пенсионных сбережений (ОПС): ${formatCurrency(result.breakdown.opsTotal)}
+4️⃣ Инвестиционный доход: ${formatCurrency(result.breakdown.investIncome)}
+5️⃣ Налоговый вычет: ${formatCurrency(result.breakdown.taxTotal)}
+
+💎 Итоговый капитал: ${formatCurrency(result.capitalFinal)}
+
+📈 Возможные выплаты:
+• Пожизненно: ${formatCurrency(result.payoutsPreview.life)}
+• В течение 10 лет: ${formatCurrency(result.payoutsPreview.tenYears)}`;
+}
+
+/**
  * Генерирует результат расчета (заглушка)
  * @param {Object} data - Собранные данные
  * @returns {string} Результат расчета
@@ -400,6 +570,78 @@ function generateCalculationResult(data) {
 🔄 Реинвестирование вычета: ${data.reinvestTax ? 'Да' : 'Нет'}
 
 🛠️ Расчёт будет реализован в следующих версиях.`;
+}
+
+/**
+ * Обрабатывает выбор типа взноса
+ * @param {number} chatId - ID чата
+ * @param {string} contributionType - Тип взноса ('monthly' или 'annual')
+ * @param {Object} bot - Экземпляр бота
+ */
+export async function handleContributionTypeSelection(chatId, contributionType, bot) {
+  const session = getCalculatorSession(chatId);
+  if (!session) {
+    await startCalculator(chatId, bot);
+    return;
+  }
+
+  const newData = { ...session.data, contributionType };
+  const nextStep =
+    contributionType === 'monthly'
+      ? CALCULATOR_STEPS.MONTHLY_CONTRIBUTION
+      : CALCULATOR_STEPS.ANNUAL_CONTRIBUTION;
+
+  updateCalculatorSession(chatId, {
+    step: nextStep,
+    data: newData,
+    retries: 0,
+  });
+
+  await askNextQuestion(chatId, bot, { ...session, step: nextStep });
+}
+
+/**
+ * Обрабатывает выбор горизонта накопления
+ * @param {number} chatId - ID чата
+ * @param {string} horizonType - Тип горизонта ('rule' или 'age')
+ * @param {Object} bot - Экземпляр бота
+ */
+export async function handleHorizonTypeSelection(chatId, horizonType, bot) {
+  const session = getCalculatorSession(chatId);
+  if (!session) {
+    await startCalculator(chatId, bot);
+    return;
+  }
+
+  const newData = { ...session.data, horizonType };
+
+  if (horizonType === 'rule') {
+    // По общему правилу - рассчитываем количество лет и переходим к следующему шагу
+    const { getPayoutYearsByRule } = await import('./calculations.js');
+    const yearsByRule = getPayoutYearsByRule(session.data.gender, session.data.age);
+
+    const dataWithYears = { ...newData, payoutYears: yearsByRule };
+    const nextStep = getNextStep(CALCULATOR_STEPS.HORIZON_TYPE, session.goal);
+
+    updateCalculatorSession(chatId, {
+      step: nextStep,
+      data: dataWithYears,
+      retries: 0,
+    });
+
+    await askNextQuestion(chatId, bot, { ...session, step: nextStep });
+  } else {
+    // До определенного возраста - переходим к вводу возраста
+    const nextStep = CALCULATOR_STEPS.HORIZON_AGE;
+
+    updateCalculatorSession(chatId, {
+      step: nextStep,
+      data: newData,
+      retries: 0,
+    });
+
+    await askNextQuestion(chatId, bot, { ...session, step: nextStep });
+  }
 }
 
 /**

@@ -8,6 +8,8 @@ import {
   handleUserInput,
   handlePayoutStartSelection,
   handleYesNoSelection,
+  handleContributionTypeSelection,
+  handleHorizonTypeSelection,
   isInCalculator,
   CALCULATION_GOALS,
 } from '../../calculator/index.js';
@@ -118,6 +120,27 @@ export function handleCallbackQuery(bot, callbackQuery) {
     case MESSAGES.CALLBACK_DATA.NO:
       bot.answerCallbackQuery(callbackQuery.id, { text: 'Нет' });
       handleYesNoSelection(chatId, false, bot);
+      break;
+
+    // Новые callback данные для сценариев 2 и 3
+    case MESSAGES.CALLBACK_DATA.CONTRIBUTION_MONTHLY:
+      bot.answerCallbackQuery(callbackQuery.id, { text: 'Ежемесячно' });
+      handleContributionTypeSelection(chatId, 'monthly', bot);
+      break;
+
+    case MESSAGES.CALLBACK_DATA.CONTRIBUTION_ANNUAL:
+      bot.answerCallbackQuery(callbackQuery.id, { text: 'Ежегодно' });
+      handleContributionTypeSelection(chatId, 'annual', bot);
+      break;
+
+    case MESSAGES.CALLBACK_DATA.HORIZON_BY_RULE:
+      bot.answerCallbackQuery(callbackQuery.id, { text: 'По общему правилу' });
+      handleHorizonTypeSelection(chatId, 'rule', bot);
+      break;
+
+    case MESSAGES.CALLBACK_DATA.HORIZON_TO_AGE:
+      bot.answerCallbackQuery(callbackQuery.id, { text: 'До определенного возраста' });
+      handleHorizonTypeSelection(chatId, 'age', bot);
       break;
 
     default:

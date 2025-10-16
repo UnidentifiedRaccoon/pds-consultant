@@ -24,6 +24,12 @@ export const CALCULATOR_STEPS = {
   TAX_RATE: 'tax_rate',
   USED_OTHER_LIMIT: 'used_other_limit',
   REINVEST_TAX: 'reinvest_tax',
+  // Новые шаги для сценариев 2 и 3
+  CONTRIBUTION_TYPE: 'contribution_type',
+  MONTHLY_CONTRIBUTION: 'monthly_contribution',
+  ANNUAL_CONTRIBUTION: 'annual_contribution',
+  HORIZON_TYPE: 'horizon_type',
+  HORIZON_AGE: 'horizon_age',
   COMPLETED: 'completed',
 };
 

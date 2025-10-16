@@ -28,6 +28,9 @@ export {
   validateTaxRate,
   validateUsedOtherLimit,
   validateYesNo,
+  validateMonthlyContribution,
+  validateAnnualContribution,
+  validateHorizonAge,
   getErrorMessage,
 } from './validators.js';
 
@@ -46,6 +49,8 @@ export {
   handleUserInput,
   handlePayoutStartSelection,
   handleYesNoSelection,
+  handleContributionTypeSelection,
+  handleHorizonTypeSelection,
   handleStartAgain,
   handleCancel,
   completeCalculation,
