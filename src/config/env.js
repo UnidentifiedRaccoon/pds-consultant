@@ -9,7 +9,6 @@ if (fs.existsSync('.env')) {
 
 export const config = cleanEnv(process.env, {
   TELEGRAM_BOT_TOKEN: str(),
-  BOT_MODE: str({ default: 'webhook' }),
   DEV_PORT: num({ default: 8080 }),
   WEBHOOK_SECRET: str(),
   PUBLIC_BASE_URL: str({ default: '' }),

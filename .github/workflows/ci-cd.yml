@@ -84,7 +84,7 @@ jobs:
             --container-name ${{ secrets.YC_CONTAINER_NAME }} \
             --image ${{ env.REGISTRY }}/${{ secrets.YC_REGISTRY_ID }}/${{ env.IMAGE_NAME }}:latest \
             --service-account-id ${{ secrets.YC_SERVICE_ACCOUNT_ID }} \
-            --environment "BOT_MODE=webhook,WEBHOOK_SECRET=${{ secrets.WEBHOOK_SECRET }},PUBLIC_BASE_URL=,TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }}" \
+            --environment "WEBHOOK_SECRET=${{ secrets.WEBHOOK_SECRET }},PUBLIC_BASE_URL=,TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }}" \
             --memory 256m \
             --cores 1 \
             --execution-timeout 30s \
