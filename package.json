@@ -8,6 +8,8 @@
     "start": "node src/index.js",
     "start:dev": "NODE_ENV=development node src/index.js",
     "start:ngrok": "node scripts/start-with-ngrok.mjs",
+    "dev": "node scripts/dev-with-ngrok.mjs",
+    "dev:server": "npx nodemon src/index.js",
     "lint": "eslint . --ext .js,.mjs,.cjs --max-warnings 0",
     "lint:fix": "eslint . --ext .js,.mjs,.cjs --fix",
     "format": "prettier --write .",
@@ -25,6 +27,7 @@
     "eslint-plugin-promise": "6.1.1",
     "husky": "9.1.7",
     "lint-staged": "15.5.2",
+    "nodemon": "3.1.10",
     "prettier": "3.3.3"
   },
   "packageManager": "npm@10.2.3",
