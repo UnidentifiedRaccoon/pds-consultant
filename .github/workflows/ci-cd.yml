@@ -50,7 +50,19 @@ jobs:
       - name: Run tests
         env:
           CI: true
-        run: npm test
+        run: |
+          # Запускаем сервер в фоне
+          npm start &
+          SERVER_PID=$!
+          
+          # Ждем запуска сервера
+          sleep 3
+          
+          # Запускаем тесты
+          npm test
+          
+          # Останавливаем сервер
+          kill $SERVER_PID
 
   # ========================================
   # ЭТАП 2: СБОРКА И ДЕПЛОЙ (только для main)
