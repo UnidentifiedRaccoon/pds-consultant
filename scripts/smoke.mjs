@@ -1,5 +1,13 @@
-import { getJSON } from '../src/utils/http/index.js';
 import { config } from '../src/config/env.js';
+
+// Простая функция для HTTP запросов
+async function getJSON(url) {
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+  }
+  return response.json();
+}
 
 (async () => {
   try {

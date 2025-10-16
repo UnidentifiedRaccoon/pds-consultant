@@ -3,13 +3,9 @@ import { createServer } from './server/fastify.js';
 import { webhookBot } from './bot/webhookBot.js';
 import { longPollingBot } from './bot/longPollingBot.js';
 import { logger } from './logger.js';
-import { startSessionCleanup } from './calculator/index.js';
 
 const platformPort = process.env.PORT && Number(process.env.PORT);
-const PORT = platformPort || config.DEV_PORT; // в YC возьмём PORT, локально DEV_PORT
-
-// Запускаем джанитор для очистки устаревших сессий калькулятора
-startSessionCleanup();
+const PORT = platformPort || config.DEV_PORT;
 
 if (config.BOT_MODE === 'webhook') {
   const bot = webhookBot();
@@ -46,7 +42,7 @@ if (config.BOT_MODE === 'webhook') {
   process.on('SIGINT', () => shutdown('SIGINT'));
   process.on('SIGTERM', () => shutdown('SIGTERM'));
 } else {
-  // старый режим: long polling (локальная разработка)
+  // режим long polling (локальная разработка)
   logger.info('mode:polling');
   longPollingBot();
 }

@@ -4,7 +4,6 @@ import { attachBotHandlers } from './attachBotHandlers.js';
 
 /**
  * Инициализация long polling бота.
- * Возвращает инстанс, чтобы main мог корректно остановить polling.
  */
 export function longPollingBot() {
   const bot = new TelegramBot(config.TELEGRAM_BOT_TOKEN, {
