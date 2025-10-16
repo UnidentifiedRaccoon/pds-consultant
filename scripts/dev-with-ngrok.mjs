@@ -1,6 +1,7 @@
 import { spawn } from 'child_process';
 import { config } from '../src/config/env.js';
 import { logger } from '../src/logger.js';
+import { setWebhook, getWebhookInfo } from '../src/bot/webhookManager.js';
 
 const PORT = config.DEV_PORT;
 
@@ -38,7 +39,7 @@ function startNgrok() {
     stdio: 'pipe',
   });
 
-  ngrokProcess.stdout.on('data', (data) => {
+  ngrokProcess.stdout.on('data', async (data) => {
     const output = data.toString();
     console.log(output);
 
@@ -48,10 +49,16 @@ function startNgrok() {
       ngrokUrl = urlMatch[0];
       logger.info({ ngrokUrl }, 'Ngrok tunnel established');
 
-      // Устанавливаем webhook
+      // Устанавливаем webhook автоматически
       const webhookUrl = `${ngrokUrl}/tg/${config.WEBHOOK_SECRET}`;
-      logger.info({ webhookUrl }, 'Set this URL as webhook in Telegram Bot API');
-      logger.info('Webhook URL will remain the same during development');
+      logger.info({ webhookUrl }, 'Setting webhook automatically...');
+
+      const success = await setWebhook(webhookUrl);
+      if (success) {
+        logger.info('✅ Webhook successfully registered! Bot is ready to use.');
+      } else {
+        logger.error('❌ Failed to register webhook. Please check your bot token.');
+      }
     }
   });
 
@@ -68,7 +75,21 @@ function startNgrok() {
   });
 }
 
+// Проверяем текущий webhook при запуске
+async function checkCurrentWebhook() {
+  logger.info('Checking current webhook status...');
+  const webhookInfo = await getWebhookInfo();
+  if (webhookInfo) {
+    if (webhookInfo.url) {
+      logger.info({ currentWebhook: webhookInfo.url }, 'Current webhook URL');
+    } else {
+      logger.info('No webhook is currently set');
+    }
+  }
+}
+
 // Запускаем процессы
+checkCurrentWebhook();
 startServer();
 setTimeout(startNgrok, 2000); // Даем серверу время запуститься
 
