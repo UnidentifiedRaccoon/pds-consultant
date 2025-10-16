@@ -8,7 +8,7 @@ on:
 
 env:
   REGISTRY: cr.yandex
-  IMAGE_NAME: capital-compass
+  IMAGE_NAME: pds-consultant
 
 jobs:
   # ========================================
