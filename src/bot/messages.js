@@ -9,7 +9,6 @@ export const MESSAGES = {
 
 🎯 Что я умею:
 • Рассчитать взносы по ПДС
-• Получить консультацию
 • Узнать о ПДС
 
 Выберите действие:`,
@@ -34,21 +33,18 @@ export const MESSAGES = {
   BUTTONS: {
     CALCULATE: '🧮 Рассчитать',
     INFO: 'ℹ️ Что такое ПДС?',
-    CONSULTATION: '💬 Получить консультацию',
   },
 
   /** Данные для callback-запросов */
   CALLBACK_DATA: {
     CALCULATE: 'calculate',
     INFO: 'info',
-    CONSULTATION: 'consultation',
   },
 
   /** Ответы на нажатия кнопок */
   CALLBACK_RESPONSES: {
     CALCULATE: 'Начинаем расчёт!',
     INFO: 'Рассказываю о ПДС!',
-    CONSULTATION: 'Функция консультации в разработке',
     ERROR: 'Произошла ошибка. Попробуйте ещё раз.',
   },
 
@@ -78,12 +74,6 @@ export function createMainKeyboard() {
           {
             text: MESSAGES.BUTTONS.INFO,
             callback_data: MESSAGES.CALLBACK_DATA.INFO,
-          },
-        ],
-        [
-          {
-            text: MESSAGES.BUTTONS.CONSULTATION,
-            callback_data: MESSAGES.CALLBACK_DATA.CONSULTATION,
           },
         ],
       ],
