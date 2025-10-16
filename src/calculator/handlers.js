@@ -60,14 +60,15 @@ export async function startCalculator(chatId, bot) {
  * @param {Object} bot - Экземпляр бота
  */
 export async function handleGoalSelection(chatId, goal, bot) {
-  const session = getCalculatorSession(chatId);
+  let session = getCalculatorSession(chatId);
   if (!session) {
-    await startCalculator(chatId, bot);
-    return;
+    // Создаем новую сессию с выбранной целью
+    session = createCalculatorSession(chatId, goal);
+  } else {
+    // Обновляем существующую сессию с выбранной целью
+    updateCalculatorSession(chatId, { goal });
+    session = getCalculatorSession(chatId);
   }
-
-  // Обновляем сессию с выбранной целью
-  updateCalculatorSession(chatId, { goal });
 
   if (goal === CALCULATION_GOALS.ADDITIONAL_PAYMENT) {
     // Начинаем пошаговый опрос
