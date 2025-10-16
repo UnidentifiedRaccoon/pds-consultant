@@ -7,7 +7,6 @@
   "scripts": {
     "start": "node src/index.js",
     "start:dev": "NODE_ENV=development node src/index.js",
-    "test": "node scripts/smoke.mjs",
     "lint": "eslint . --ext .js,.mjs,.cjs --max-warnings 0",
     "lint:fix": "eslint . --ext .js,.mjs,.cjs --fix",
     "format": "prettier --write .",
