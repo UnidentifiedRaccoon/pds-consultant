@@ -16,7 +16,11 @@
     "lint": "eslint . --ext .js,.mjs,.cjs,.ts,.mts,.cts --max-warnings 0",
     "lint:fix": "eslint . --ext .js,.mjs,.cjs,.ts,.mts,.cts --fix",
     "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "typecheck": "tsc --noEmit",
+    "smoke:basic": "echo \"Basic smoke stub\"",
+    "smoke:webhook": "echo \"Webhook smoke stub\"",
+    "diagnose:pdf": "echo \"PDF diagnostics stub\"",
     "prepare": "husky"
   },
   "keywords": [],
