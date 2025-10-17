@@ -75,31 +75,109 @@ export const MESSAGES = {
     },
     RESPONSES: {
       COMPLETE: `✅ Спасибо! Мы сохранили ответы. Подробный расчёт появится совсем скоро.`,
-      RESULT_HEADER: `✅ Спасибо! Считаю при доходности 10% годовых и ежемесячной капитализацией…
-Учту: госдоплату (для вашего диапазона дохода — до 36 000 ₽/год в течение 10 лет) и налоговый вычет по выбранной ставке.
-Minfin`,
-      RESULT_BODY: `Бот (результат):
-📊 Сводка на конец 15-го года (разовая выплата):
-
-Личные взносы: ≈ {personalTotal}
-
-Ежемесячный взнос (расчётный): ≈ {monthlyContribution}/мес
-
-Софинансирование государства: ≈ {stateTotal} (по {annualStateSupport}/год в первые 10 лет)
-Minfin
-
-Перевод пенсионных сбережений (ОПС): {opsTransfer}
-
-Инвестиционный доход: ≈ {investmentIncome}
-
-Налоговый вычет (сумма возвратов): ≈ {taxTotal} ({taxRate}% от ваших годовых взносов в пределах лимита 400 000 ₽/год){taxNote}
-Fincult
-
-Размер ежемесячных выплат (оценка):
-• пожизненно (грубо, 20 лет): ≈ {lifePayment}/мес
-• на 10 лет: ≈ {tenYearPayment}/мес
-• единовременно: {lumpSum}`,
+      RESULT_HEADER: `✅ Спасибо! Считаю при доходности <b>10% годовых</b> и ежемесячной капитализации…<br/>
+Учту: госдоплату (<a href="https://cbr.ru/RSCI/activity_npf/program/">до 36 000 ₽/год в течение 10 лет</a>; порог взносов 2 000 ₽/год) и налоговый вычет по выбранной ставке (<a href="https://fincult.info/article/nalogovye-vychety-na-dolgosrochnye-sberezheniya/">лимит базы 400 000 ₽/год</a>). Дополнительно: справка по ПДС от <a href="https://minfin.gov.ru/ru/perfomance/pds/">Минфин</a>.`,
+      RESULT_BODY: `<b>📊 Сводка на конец 15-го года (разовая выплата):</b><br/>
+<br/>
+<b>Личные взносы:</b> ≈ {personalTotal}<br/>
+<br/>
+<b>Ежемесячный взнос (расчётный):</b> ≈ {monthlyContribution}/мес<br/>
+<br/>
+<b>Софинансирование государства:</b> ≈ {stateTotal} (по {annualStateSupport}/год в первые 10 лет; <a href="https://cbr.ru/RSCI/activity_npf/program/">Банк России</a>)<br/>
+<br/>
+<b>Перевод пенсионных сбережений (ОПС):</b> {opsTransfer}<br/>
+<br/>
+<b>Инвестиционный доход:</b> ≈ {investmentIncome}<br/>
+<br/>
+<b>Налоговый вычет (сумма возвратов):</b> ≈ {taxTotal} ({taxRate}% от ваших годовых взносов в пределах лимита 400 000 ₽/год; <a href="https://fincult.info/article/nalogovye-vychety-na-dolgosrochnye-sberezheniya/">Финкульт</a>){taxNote}<br/>
+<br/>
+<b>Размер ежемесячных выплат (оценка):</b><br/>
+• <i>пожизненно</i>: ≈ {lifePayment}/мес<br/>
+• <i>на 10 лет</i>: ≈ {tenYearPayment}/мес<br/>
+• <i>единовременно</i>: {lumpSum}`,
       RESTART_HINT: `Хотите попробовать другой сценарий? Нажмите «⬅️ Главное меню».`,
+      PDF_TEMPLATE: `<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Отчёт по программе ПДС</title>
+    <style>
+      body {
+        font-family: 'Arial', sans-serif;
+        margin: 32px;
+        color: #1f2933;
+        line-height: 1.6;
+      }
+      h1 {
+        font-size: 24px;
+        margin-bottom: 12px;
+      }
+      h2 {
+        font-size: 20px;
+        margin: 24px 0 12px;
+        color: #0f4c81;
+      }
+      .section {
+        margin-bottom: 18px;
+      }
+      .note {
+        font-size: 13px;
+        color: #52606d;
+      }
+      .highlight {
+        font-weight: bold;
+        color: #0f4c81;
+      }
+      ul {
+        padding-left: 20px;
+      }
+      a {
+        color: #0f4c81;
+        text-decoration: none;
+      }
+      .footer {
+        margin-top: 24px;
+        font-size: 12px;
+        color: #9aa5b1;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Итоговый отчёт по программе долгосрочных сбережений (ПДС)</h1>
+    <div class="section">
+      <p><strong>Доходность:</strong> <span class="highlight">10% годовых</span>, ежемесячная капитализация.</p>
+      <p>
+        Учтены:<br/>
+        • Государственная доплата (<a href="https://cbr.ru/RSCI/activity_npf/program/">до 36 000 ₽/год</a>, порог взносов — 2 000 ₽/год).<br/>
+        • Налоговый вычет по выбранной ставке (<a href="https://fincult.info/article/nalogovye-vychety-na-dolgosrochnye-sberezheniya/">лимит базы 400 000 ₽/год</a>).<br/>
+        • Дополнительные материалы: <a href="https://minfin.gov.ru/ru/perfomance/pds/">Минфин</a>.
+      </p>
+    </div>
+
+    <h2>📊 Сводка на конец 15-го года</h2>
+    <div class="section">
+      <p><strong>Личные взносы:</strong> {personalTotal}</p>
+      <p><strong>Ежемесячный взнос (расчётный):</strong> {monthlyContribution}/мес</p>
+      <p><strong>Софинансирование государства:</strong> {stateTotal} (по {annualStateSupport}/год в первые 10 лет; <a href="https://cbr.ru/RSCI/activity_npf/program/">Банк России</a>)</p>
+      <p><strong>Перевод пенсионных сбережений (ОПС):</strong> {opsTransfer}</p>
+      <p><strong>Инвестиционный доход:</strong> {investmentIncome}</p>
+      <p><strong>Налоговый вычет (сумма возвратов):</strong> {taxTotal} ({taxRate}% от годовых взносов; <a href="https://fincult.info/article/nalogovye-vychety-na-dolgosrochnye-sberezheniya/">Финкульт</a>){taxNote}</p>
+    </div>
+
+    <h2>💸 Размер предполагаемых выплат</h2>
+    <div class="section">
+      <ul>
+        <li>Пожизненно (условно, 20 лет): {lifePayment}/мес</li>
+        <li>На 10 лет: {tenYearPayment}/мес</li>
+        <li>Единовременно: {lumpSum}</li>
+      </ul>
+    </div>
+
+    <div class="footer">
+      Расчёт является приблизительным и не учитывает индивидуальные условия договоров НПФ. Проверьте данные и проконсультируйтесь с вашим фонтом перед принятием решения.
+    </div>
+  </body>
+</html>`,
     },
   },
 
@@ -128,6 +206,7 @@ Fincult
     CAPITAL_NDFL_22: '22% НДФЛ',
     CAPITAL_REINVEST_YES: '✅ Да',
     CAPITAL_REINVEST_NO: '❌ Нет',
+    CAPITAL_RESULT_PDF: '📄 Получить PDF-отчёт',
     BACK_TO_MENU: '⬅️ Главное меню',
   },
 
@@ -151,6 +230,7 @@ Fincult
     CAPITAL_NDFL_22: 'capital_ndfl_22',
     CAPITAL_REINVEST_YES: 'capital_reinvest_yes',
     CAPITAL_REINVEST_NO: 'capital_reinvest_no',
+    CAPITAL_RESULT_PDF: 'capital_pdf',
     BACK_TO_MENU: 'start',
   },
 };
@@ -354,6 +434,27 @@ export function createCapitalReinvestKeyboard() {
           {
             text: MESSAGES.BUTTONS.CAPITAL_REINVEST_NO,
             callback_data: MESSAGES.CALLBACK_DATA.CAPITAL_REINVEST_NO,
+          },
+        ],
+        [
+          {
+            text: MESSAGES.BUTTONS.BACK_TO_MENU,
+            callback_data: MESSAGES.CALLBACK_DATA.BACK_TO_MENU,
+          },
+        ],
+      ],
+    },
+  };
+}
+
+export function createCapitalResultKeyboard() {
+  return {
+    reply_markup: {
+      inline_keyboard: [
+        [
+          {
+            text: MESSAGES.BUTTONS.CAPITAL_RESULT_PDF,
+            callback_data: MESSAGES.CALLBACK_DATA.CAPITAL_RESULT_PDF,
           },
         ],
         [

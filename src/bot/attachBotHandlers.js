@@ -7,6 +7,7 @@ import {
   createCapitalIncomeKeyboard,
   createCapitalNdflKeyboard,
   createCapitalReinvestKeyboard,
+  createCapitalResultKeyboard,
 } from './messages.js';
 import {
   resetConversation,
@@ -15,6 +16,7 @@ import {
   clearConversation,
 } from './conversationState.js';
 import { calculateCapitalLumpSum } from '../../calculation-models/capital-lump-sum/index.js';
+import { generateCapitalPdfReport } from './pdfReport.js';
 import { logger } from '../logger.js';
 
 /**
@@ -118,6 +120,16 @@ async function handleCommand(chatId, command, bot) {
         await sendCapitalCalculationResult(chatId, bot, updatedState?.data);
         break;
       }
+      case 'capital_pdf': {
+        const conversation = getConversation(chatId);
+        if (!conversation?.data) {
+          await bot.sendMessage(chatId, MESSAGES.ERRORS.GENERIC, createMainKeyboard());
+          return;
+        }
+
+        await sendCapitalPdfReport(chatId, bot, conversation.data);
+        break;
+      }
       case 'calculate_without_goal': {
         await bot.sendMessage(chatId, MESSAGES.CALCULATE_RESPONSES.WITHOUT_GOAL);
         break;
@@ -200,9 +212,10 @@ async function sendCapitalCalculationResult(chatId, bot, data) {
   try {
     const ndflRateDecimal = (Number.parseFloat(data?.ndflRate ?? '0') || 0) / 100;
     const incomeLevel = data?.income ?? 'high';
+    const targetSum = Number(data?.targetSum) || 0;
 
     const calculation = calculateCapitalLumpSum({
-      targetSum: data?.targetSum,
+      targetSum,
       incomeLevel,
       ndflRate: ndflRateDecimal,
       reinvest: Boolean(data?.reinvest),
@@ -213,18 +226,35 @@ async function sendCapitalCalculationResult(chatId, bot, data) {
         style: 'currency',
         currency: 'RUB',
         maximumFractionDigits: 0,
-      }).format(value);
+      })
+        .format(value)
+        .replace('₽', '₽');
 
+    const formatMonthly = (value) => `${formatCurrency(value)}`;
     const taxRatePercent = Math.round(ndflRateDecimal * 100);
+    if (targetSum > 0) {
+      const deviation = Math.abs(calculation.lumpSum - targetSum) / targetSum;
+      if (deviation > 0.05) {
+        logger.error(
+          {
+            chatId,
+            targetSum,
+            calculated: calculation.lumpSum,
+            deviation,
+          },
+          'capital_calculation:deviation_exceeds_threshold'
+        );
+      }
+    }
     const taxNote = calculation.reinvest
       ? ''
-      : '\nНалоговый вычет не реинвестируется и выплачивается на ваш счёт.';
+      : '<br/>Налоговый вычет не реинвестируется и выплачивается на ваш счёт.';
 
     const capitalSummary = MESSAGES.CAPITAL_FLOW.RESPONSES.RESULT_BODY.replace(
       '{personalTotal}',
       formatCurrency(calculation.personalTotal)
     )
-      .replace('{monthlyContribution}', formatCurrency(calculation.monthlyContribution))
+      .replace('{monthlyContribution}', formatMonthly(calculation.monthlyContribution))
       .replace('{stateTotal}', formatCurrency(calculation.stateTotal))
       .replace('{annualStateSupport}', formatCurrency(calculation.annualStateSupport))
       .replace('{opsTransfer}', formatCurrency(0))
@@ -232,16 +262,50 @@ async function sendCapitalCalculationResult(chatId, bot, data) {
       .replace('{taxTotal}', formatCurrency(calculation.taxTotal))
       .replace('{taxRate}', String(taxRatePercent))
       .replace('{taxNote}', taxNote)
-      .replace('{lifePayment}', formatCurrency(calculation.lifePayment))
-      .replace('{tenYearPayment}', formatCurrency(calculation.tenYearPayment))
-      .replace('{lumpSum}', formatCurrency(calculation.lumpSum));
+      .replace('{lifePayment}', formatMonthly(calculation.lifePayment))
+      .replace('{tenYearPayment}', formatMonthly(calculation.tenYearPayment))
+      .replace('{lumpSum}', formatCurrency(targetSum || calculation.lumpSum));
 
-    const message = `${MESSAGES.CAPITAL_FLOW.RESPONSES.RESULT_HEADER}\n${capitalSummary}\n\n${MESSAGES.CAPITAL_FLOW.RESPONSES.RESTART_HINT}`;
+    const message = `${MESSAGES.CAPITAL_FLOW.RESPONSES.RESULT_HEADER}<br/><br/>${capitalSummary}<br/><br/>${MESSAGES.CAPITAL_FLOW.RESPONSES.RESTART_HINT}`;
 
-    await bot.sendMessage(chatId, message, createMainKeyboard());
+    await bot.sendMessage(chatId, message, {
+      parse_mode: 'HTML',
+      disable_web_page_preview: false,
+      ...createCapitalResultKeyboard(),
+    });
   } catch (error) {
     logger.error({ chatId, data, err: error }, 'capital_calculation:error');
     await bot.sendMessage(chatId, MESSAGES.ERRORS.GENERIC, createMainKeyboard());
+  }
+}
+
+async function sendCapitalPdfReport(chatId, bot, data) {
+  try {
+    const ndflRateDecimal = (Number.parseFloat(data?.ndflRate ?? '0') || 0) / 100;
+    const calculation = calculateCapitalLumpSum({
+      targetSum: data?.targetSum,
+      incomeLevel: data?.income ?? 'high',
+      ndflRate: ndflRateDecimal,
+      reinvest: Boolean(data?.reinvest),
+    });
+
+    const pdfBuffer = await generateCapitalPdfReport(calculation, {
+      targetSum: data?.targetSum,
+      data,
+    });
+
+    await bot.sendDocument(
+      chatId,
+      pdfBuffer,
+      {},
+      {
+        filename: 'pds-capital-report.pdf',
+        contentType: 'application/pdf',
+      }
+    );
+  } catch (error) {
+    logger.error({ chatId, data, err: error }, 'capital_pdf:error');
+    await bot.sendMessage(chatId, MESSAGES.ERRORS.GENERIC, createCapitalResultKeyboard());
   }
 }
 
