@@ -1,89 +1,316 @@
-import { MESSAGES, createMainKeyboard } from './messages.js';
+import {
+  MESSAGES,
+  createMainKeyboard,
+  createCalculateKeyboard,
+  createCapitalContinueKeyboard,
+  createCapitalGenderKeyboard,
+  createCapitalIncomeKeyboard,
+  createCapitalNdflKeyboard,
+  createCapitalReinvestKeyboard,
+} from './messages.js';
+import {
+  resetConversation,
+  updateConversation,
+  getConversation,
+  clearConversation,
+} from './conversationState.js';
+import { calculateCapitalLumpSum } from '../../calculation-models/capital-lump-sum/index.js';
 import { logger } from '../logger.js';
 
 /**
  * Обработка команд пользователя
  */
 async function handleCommand(chatId, command, bot) {
-  switch (command) {
-    case 'start': {
-      const keyboard = createMainKeyboard();
-      await bot.sendMessage(chatId, MESSAGES.WELCOME, keyboard);
-      break;
+  if (!chatId || !command || !bot) {
+    logger.error({ chatId, command }, 'handleCommand:invalid:params');
+    return;
+  }
+
+  try {
+    switch (command) {
+      case 'start': {
+        const keyboard = createMainKeyboard();
+        await bot.sendMessage(chatId, MESSAGES.WELCOME, keyboard);
+        clearConversation(chatId);
+        break;
+      }
+      case 'calculate': {
+        await bot.sendMessage(chatId, MESSAGES.CALCULATE_PROMPT, createCalculateKeyboard());
+        break;
+      }
+      case 'calculate_extra_payout': {
+        await bot.sendMessage(chatId, MESSAGES.CALCULATE_RESPONSES.EXTRA_PAYOUT);
+        break;
+      }
+      case 'calculate_capital': {
+        await bot.sendMessage(chatId, MESSAGES.CAPITAL_FLOW.INTRO, createCapitalContinueKeyboard());
+        resetConversation(chatId, {
+          scenario: 'capital',
+          step: 'intro',
+          data: {},
+        });
+        break;
+      }
+      case 'capital_continue': {
+        updateConversation(chatId, { step: 'target_sum' });
+        await bot.sendMessage(chatId, MESSAGES.CAPITAL_FLOW.PROMPTS.TARGET_SUM);
+        break;
+      }
+      case 'capital_gender_male':
+      case 'capital_gender_female': {
+        updateConversation(chatId, {
+          step: 'age',
+          data: {
+            gender: command === 'capital_gender_male' ? 'male' : 'female',
+          },
+        });
+        await bot.sendMessage(chatId, MESSAGES.CAPITAL_FLOW.PROMPTS.AGE);
+        break;
+      }
+      case 'capital_income_low':
+      case 'capital_income_mid':
+      case 'capital_income_high': {
+        updateConversation(chatId, {
+          step: 'ndfl',
+          data: {
+            income:
+              command === 'capital_income_low'
+                ? 'low'
+                : command === 'capital_income_mid'
+                  ? 'mid'
+                  : 'high',
+          },
+        });
+        await bot.sendMessage(
+          chatId,
+          MESSAGES.CAPITAL_FLOW.PROMPTS.NDFL,
+          createCapitalNdflKeyboard()
+        );
+        break;
+      }
+      case 'capital_ndfl_13':
+      case 'capital_ndfl_15':
+      case 'capital_ndfl_18':
+      case 'capital_ndfl_20':
+      case 'capital_ndfl_22': {
+        updateConversation(chatId, {
+          step: 'reinvest',
+          data: { ndflRate: command.replace('capital_ndfl_', '') },
+        });
+        await bot.sendMessage(
+          chatId,
+          MESSAGES.CAPITAL_FLOW.PROMPTS.REINVEST,
+          createCapitalReinvestKeyboard()
+        );
+        break;
+      }
+      case 'capital_reinvest_yes':
+      case 'capital_reinvest_no': {
+        const updatedState = updateConversation(chatId, {
+          step: 'complete',
+          finished: true,
+          data: {
+            ...getConversation(chatId)?.data,
+            reinvest: command === 'capital_reinvest_yes',
+          },
+        });
+
+        await sendCapitalCalculationResult(chatId, bot, updatedState?.data);
+        break;
+      }
+      case 'calculate_without_goal': {
+        await bot.sendMessage(chatId, MESSAGES.CALCULATE_RESPONSES.WITHOUT_GOAL);
+        break;
+      }
+      case 'info': {
+        await bot.sendMessage(chatId, MESSAGES.INFO_ABOUT_PDS, {
+          parse_mode: 'HTML',
+          disable_web_page_preview: true,
+          ...createMainKeyboard(),
+        });
+        break;
+      }
+      default:
+        logger.warn({ chatId, command }, 'handleCommand:unknown:command');
     }
-    case 'calculate': {
+  } catch (error) {
+    logger.error({ chatId, command, err: error }, 'handleCommand:error');
+    // Пытаемся отправить сообщение об ошибке пользователю
+    try {
+      await bot.sendMessage(chatId, MESSAGES.ERRORS.GENERIC, createMainKeyboard());
+    } catch (sendError) {
+      logger.error({ chatId, err: sendError }, 'handleCommand:send:error');
+    }
+  }
+}
+
+async function handleCapitalFlowText(chatId, text, bot, conversation) {
+  const numericText = text.replace(/\s+/g, '');
+
+  switch (conversation.step) {
+    case 'target_sum': {
+      const target = Number.parseInt(numericText, 10);
+
+      if (!Number.isFinite(target) || target < 50000 || target > 100000000) {
+        await bot.sendMessage(chatId, MESSAGES.CAPITAL_FLOW.ERRORS.INVALID_TARGET_SUM);
+        return;
+      }
+
+      updateConversation(chatId, {
+        step: 'gender',
+        data: { ...conversation.data, targetSum: target },
+      });
+
       await bot.sendMessage(
         chatId,
-        '🚧 Функция расчёта находится в разработке. Скоро будет доступна!'
+        MESSAGES.CAPITAL_FLOW.PROMPTS.GENDER,
+        createCapitalGenderKeyboard()
       );
-      break;
+      return;
     }
-    case 'info': {
-      await bot.sendMessage(chatId, MESSAGES.INFO_ABOUT_PDS, {
-        parse_mode: 'HTML',
-        disable_web_page_preview: true,
-        ...createMainKeyboard(),
+
+    case 'age': {
+      const age = Number.parseInt(numericText, 10);
+
+      if (!Number.isFinite(age) || age < 18 || age > 100) {
+        await bot.sendMessage(chatId, MESSAGES.CAPITAL_FLOW.ERRORS.INVALID_AGE);
+        return;
+      }
+
+      updateConversation(chatId, {
+        step: 'income',
+        data: { ...conversation.data, age },
       });
-      break;
+
+      await bot.sendMessage(
+        chatId,
+        MESSAGES.CAPITAL_FLOW.PROMPTS.INCOME,
+        createCapitalIncomeKeyboard()
+      );
+      return;
     }
-    default:
-      await bot.sendMessage(chatId, MESSAGES.UNKNOWN_COMMAND, createMainKeyboard());
+
+    default: {
+      logger.warn({ chatId, step: conversation.step }, 'capital_flow:unexpected:text');
+    }
+  }
+}
+
+async function sendCapitalCalculationResult(chatId, bot, data) {
+  try {
+    const ndflRateDecimal = (Number.parseFloat(data?.ndflRate ?? '0') || 0) / 100;
+    const incomeLevel = data?.income ?? 'high';
+
+    const calculation = calculateCapitalLumpSum({
+      targetSum: data?.targetSum,
+      incomeLevel,
+      ndflRate: ndflRateDecimal,
+      reinvest: Boolean(data?.reinvest),
+    });
+
+    const formatCurrency = (value) =>
+      new Intl.NumberFormat('ru-RU', {
+        style: 'currency',
+        currency: 'RUB',
+        maximumFractionDigits: 0,
+      }).format(value);
+
+    const taxRatePercent = Math.round(ndflRateDecimal * 100);
+    const taxNote = calculation.reinvest
+      ? ''
+      : '\nНалоговый вычет не реинвестируется и выплачивается на ваш счёт.';
+
+    const capitalSummary = MESSAGES.CAPITAL_FLOW.RESPONSES.RESULT_BODY.replace(
+      '{personalTotal}',
+      formatCurrency(calculation.personalTotal)
+    )
+      .replace('{monthlyContribution}', formatCurrency(calculation.monthlyContribution))
+      .replace('{stateTotal}', formatCurrency(calculation.stateTotal))
+      .replace('{annualStateSupport}', formatCurrency(calculation.annualStateSupport))
+      .replace('{opsTransfer}', formatCurrency(0))
+      .replace('{investmentIncome}', formatCurrency(calculation.investmentIncome))
+      .replace('{taxTotal}', formatCurrency(calculation.taxTotal))
+      .replace('{taxRate}', String(taxRatePercent))
+      .replace('{taxNote}', taxNote)
+      .replace('{lifePayment}', formatCurrency(calculation.lifePayment))
+      .replace('{tenYearPayment}', formatCurrency(calculation.tenYearPayment))
+      .replace('{lumpSum}', formatCurrency(calculation.lumpSum));
+
+    const message = `${MESSAGES.CAPITAL_FLOW.RESPONSES.RESULT_HEADER}\n${capitalSummary}\n\n${MESSAGES.CAPITAL_FLOW.RESPONSES.RESTART_HINT}`;
+
+    await bot.sendMessage(chatId, message, createMainKeyboard());
+  } catch (error) {
+    logger.error({ chatId, data, err: error }, 'capital_calculation:error');
+    await bot.sendMessage(chatId, MESSAGES.ERRORS.GENERIC, createMainKeyboard());
   }
 }
 
 export function attachBotHandlers(bot) {
-  // Обработчик команд /start
-  bot.onText(/^\/(start|clear)\b/, async (msg) => {
-    const chatId = msg.chat.id;
-    const command = msg.text.split(' ')[0].substring(1); // убираем /
-    await handleCommand(chatId, command, bot);
-  });
+  if (!bot) {
+    throw new Error('Bot instance is required');
+  }
 
-  // Обработчик текстовых команд
-  bot.onText(/^(рассчитать|что такое пдс\?*)$/i, async (msg) => {
-    const chatId = msg.chat.id;
-    const text = msg.text.toLowerCase().trim();
-
-    if (text === 'рассчитать') {
-      await handleCommand(chatId, 'calculate', bot);
-    } else if (text === 'что такое пдс' || text === 'что такое пдс?') {
-      await handleCommand(chatId, 'info', bot);
-    }
-  });
-
-  // Обработчик обычных сообщений
-  bot.on('message', async (msg) => {
-    const chatId = msg.chat.id;
-    const text = (msg.text ?? '').trim();
-    if (!text || text.startsWith('/')) return;
-
-    // Простые ответы на основе ключевых слов
-    if (text.toLowerCase().includes('рассчитать') || text.toLowerCase().includes('расчет')) {
-      await handleCommand(chatId, 'calculate', bot);
-    } else if (text.toLowerCase().includes('пдс')) {
-      await handleCommand(chatId, 'info', bot);
-    } else {
-      await bot.sendMessage(chatId, 'Используйте кнопки ниже для навигации.', createMainKeyboard());
-    }
-  });
-
-  // Обработчик нажатий на кнопки
-  bot.on('callback_query', async (callbackQuery) => {
-    const chatId = callbackQuery.message.chat.id;
-    const data = callbackQuery.data;
-
+  // Обработчик команды /start
+  bot.onText(/\/start/, async (msg) => {
     try {
-      // Отвечаем на callback
-      const responseText = MESSAGES.CALLBACK_RESPONSES[data.toUpperCase()] || 'OK';
-      await bot.answerCallbackQuery(callbackQuery.id, { text: responseText });
+      const chatId = msg?.chat?.id;
+      if (!chatId) {
+        logger.error({ msg }, 'start:missing:chatId');
+        return;
+      }
+      await handleCommand(chatId, 'start', bot);
+    } catch (error) {
+      logger.error({ err: error, msg }, 'start:error');
+    }
+  });
+
+  // Обработчик нажатий на inline кнопки
+  bot.on('callback_query', async (callbackQuery) => {
+    try {
+      const chatId = callbackQuery?.message?.chat?.id;
+      const data = callbackQuery?.data;
+
+      if (!chatId || !data) {
+        logger.error({ callbackQuery }, 'callback:missing:data');
+        return;
+      }
+
+      // Убираем "часики" на кнопке (без всплывающего текста)
+      await bot.answerCallbackQuery(callbackQuery.id);
 
       // Выполняем команду
       await handleCommand(chatId, data, bot);
     } catch (e) {
-      logger.error({ chatId, err: e }, 'callback:error');
-      await bot.answerCallbackQuery(callbackQuery.id, {
-        text: MESSAGES.CALLBACK_RESPONSES.ERROR,
-      });
+      logger.error({ err: e, callbackQuery }, 'callback:error');
+      // Пытаемся убрать "часики" даже при ошибке
+      try {
+        await bot.answerCallbackQuery(callbackQuery.id);
+      } catch (answerError) {
+        logger.error({ err: answerError }, 'callback:answer:error');
+      }
+    }
+  });
+
+  bot.on('message', async (msg) => {
+    try {
+      const chatId = msg?.chat?.id;
+      const text = (msg?.text ?? '').trim();
+
+      if (!chatId) {
+        logger.error({ msg }, 'message:missing:chatId');
+        return;
+      }
+
+      if (!text || text.startsWith('/')) {
+        return;
+      }
+
+      const conversation = getConversation(chatId);
+      if (conversation?.scenario === 'capital') {
+        await handleCapitalFlowText(chatId, text, bot, conversation);
+      }
+    } catch (error) {
+      logger.error({ err: error, msg }, 'message:error');
     }
   });
 
