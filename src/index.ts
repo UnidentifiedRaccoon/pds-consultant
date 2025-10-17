@@ -54,12 +54,24 @@ async function startApp(): Promise<void> {
     await server.listen({ port: PORT, host: '0.0.0.0' });
     logger.info({ port: PORT, env: process.env.NODE_ENV || 'production' }, 'http:listening');
 
-    // Вывод информации о webhook
+    // Настройка webhook если указан PUBLIC_BASE_URL
     if (config.PUBLIC_BASE_URL) {
-      logger.info(
-        { webhook: `${config.PUBLIC_BASE_URL}/tg/${config.WEBHOOK_SECRET}` },
-        'webhook:path'
-      );
+      const webhookUrl = `${config.PUBLIC_BASE_URL.replace(/\/$/, '')}/tg/${config.WEBHOOK_SECRET}`;
+
+      try {
+        await bot.api.setWebhook(webhookUrl, {
+          secret_token: config.WEBHOOK_SECRET,
+        });
+        logger.info({ webhook: webhookUrl }, 'webhook:set:success');
+      } catch (hookError) {
+        logger.error(
+          {
+            err: hookError,
+            webhookUrl,
+          },
+          'webhook:set:failed'
+        );
+      }
     } else {
       logger.warn('Set PUBLIC_BASE_URL to complete Telegram setWebhook.');
     }
