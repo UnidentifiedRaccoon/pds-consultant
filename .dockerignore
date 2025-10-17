@@ -1,14 +1,47 @@
-node_modules
-.git
-.github
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+
+# Development files
 .env
 .env.*
-coverage
-dist
-logs
-Dockerfile
-docker-compose.yml
+!.env.example
 
-# Service account keys
-sa.json
-*.key.json
+# Git
+.git/
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# CI/CD
+.github/
+
+# Documentation
+*.md
+!README.md
+
+# Tests
+*.test.ts
+*.test.js
+*.spec.ts
+*.spec.js
+
+# Misc
+coverage/
+.nyc_output/
