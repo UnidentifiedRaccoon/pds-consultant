@@ -42,6 +42,10 @@ jobs:
           WEBHOOK_SECRET=replace_me
           PUBLIC_BASE_URL=
           LOG_LEVEL=warn
+          YC_API_KEY=dummy
+          YC_FOLDER_ID=dummy
+          YC_GPT_MODEL=yandexgpt/latest
+          YC_GPT_ENDPOINT=https://llm.api.cloud.yandex.net/foundationModels/v1/chat/completions
           EOF
 
       - name: Install Playwright browsers
@@ -59,6 +63,10 @@ jobs:
           WEBHOOK_SECRET: replace_me
           PUBLIC_BASE_URL: http://localhost:8080
           LOG_LEVEL: warn
+          YC_API_KEY: ${{ secrets.YC_API_KEY }}
+          YC_FOLDER_ID: ${{ secrets.YC_FOLDER_ID }}
+          YC_GPT_MODEL: ${{ secrets.YC_GPT_MODEL }}
+          YC_GPT_ENDPOINT: ${{ secrets.YC_GPT_ENDPOINT }}
         run: |
           npm run start:dev > server.log 2>&1 & echo $! > server.pid
           sleep 5
@@ -130,6 +138,9 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           WEBHOOK_SECRET: ${{ secrets.WEBHOOK_SECRET }}
           PUBLIC_BASE_URL: ${{ secrets.PUBLIC_BASE_URL }}
+          YC_API_KEY: ${{ secrets.YC_API_KEY }}
+          YC_GPT_MODEL: ${{ secrets.YC_GPT_MODEL }}
+          YC_GPT_ENDPOINT: ${{ secrets.YC_GPT_ENDPOINT }}
         run: |
           curl -sSL https://storage.yandexcloud.net/yandexcloud-yc/install.sh | bash
           export PATH=$PATH:$HOME/yandex-cloud/bin
@@ -143,7 +154,7 @@ jobs:
             --container-name "$YC_CONTAINER_NAME" \
             --image ${{ env.REGISTRY }}/${{ secrets.YC_REGISTRY_ID }}/${{ env.IMAGE_NAME }}:latest \
             --service-account-id "$YC_SERVICE_ACCOUNT_ID" \
-            --environment TELEGRAM_BOT_TOKEN=$TELEGRAM_BOT_TOKEN,WEBHOOK_SECRET=$WEBHOOK_SECRET,PUBLIC_BASE_URL=$PUBLIC_BASE_URL,LOG_LEVEL=info \
+            --environment TELEGRAM_BOT_TOKEN=$TELEGRAM_BOT_TOKEN,WEBHOOK_SECRET=$WEBHOOK_SECRET,PUBLIC_BASE_URL=$PUBLIC_BASE_URL,LOG_LEVEL=info,YC_API_KEY=$YC_API_KEY,YC_FOLDER_ID=$YC_FOLDER_ID,YC_GPT_MODEL=$YC_GPT_MODEL,YC_GPT_ENDPOINT=$YC_GPT_ENDPOINT \
             --memory 512m \
             --cores 1 \
             --execution-timeout 30s \

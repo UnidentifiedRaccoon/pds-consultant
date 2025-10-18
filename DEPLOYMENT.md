@@ -277,6 +277,10 @@ WEBHOOK_SECRET=your_webhook_secret
 # Для Yandex Cloud (опционально)
 YC_SA_JSON={"id":"...","service_account_id":"..."}
 YC_REGISTRY_ID=crp...
+YC_API_KEY=your_yc_api_key
+YC_FOLDER_ID=your_folder_id
+YC_GPT_MODEL=yandexgpt/latest
+YC_GPT_ENDPOINT=https://llm.api.cloud.yandex.net/foundationModels/v1/chat/completions
 
 # Для Railway (опционально)
 RAILWAY_TOKEN=your_railway_token

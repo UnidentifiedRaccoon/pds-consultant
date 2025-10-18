@@ -10,6 +10,9 @@ interface SessionData {
     ndflRate: string;
     reinvest: boolean;
   };
+  consultation?: {
+    history: Array<{ role: 'user' | 'assistant'; text: string }>;
+  };
 }
 
 export type MyContext = Context &

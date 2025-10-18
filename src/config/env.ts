@@ -13,4 +13,8 @@ export const config = cleanEnv(process.env, {
   DEV_PORT: num({ default: 8080 }),
   WEBHOOK_SECRET: str(),
   PUBLIC_BASE_URL: str({ default: '' }),
+  YC_API_KEY: str(),
+  YC_FOLDER_ID: str(),
+  YC_GPT_MODEL: str(),
+  YC_GPT_ENDPOINT: str(),
 });

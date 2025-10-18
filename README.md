@@ -33,6 +33,10 @@ TELEGRAM_BOT_TOKEN=your_bot_token_here
 WEBHOOK_SECRET=your_secret_at_least_8_chars
 DEV_PORT=8080
 PUBLIC_BASE_URL=
+YC_API_KEY=your_yandex_cloud_api_key
+YC_FOLDER_ID=your_folder_id
+YC_GPT_MODEL=yandexgpt/latest
+YC_GPT_ENDPOINT=https://llm.api.cloud.yandex.net/foundationModels/v1/chat/completions
 ```
 
 ## 💻 Разработка
