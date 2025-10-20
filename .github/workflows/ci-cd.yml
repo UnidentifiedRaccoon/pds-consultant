@@ -146,7 +146,7 @@ jobs:
           export PATH=$PATH:$HOME/yandex-cloud/bin
 
           missing=()
-          for var in YC_SA_JSON YC_CLOUD_ID YC_FOLDER_ID YC_CONTAINER_NAME YC_SERVICE_ACCOUNT_ID; do
+          for var in YC_SA_JSON YC_CLOUD_ID YC_FOLDER_ID YC_CONTAINER_NAME YC_SERVICE_ACCOUNT_ID YC_API_KEY YC_GPT_MODEL YC_GPT_ENDPOINT; do
             if [ -z "${!var:-}" ]; then
               missing+=("$var")
             fi

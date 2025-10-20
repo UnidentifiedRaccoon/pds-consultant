@@ -191,10 +191,15 @@ async function callYandexGpt(body: unknown): Promise<unknown> {
 }
 
 function buildEndpointList(initialEndpoint: string): string[] {
-  const endpoints = [initialEndpoint];
+  const endpoint = initialEndpoint.trim();
+  if (!endpoint) {
+    throw new Error('YC_GPT_ENDPOINT is not configured');
+  }
 
-  if (initialEndpoint.endsWith('/chat/completions')) {
-    const fallback = initialEndpoint.replace(/\/chat\/completions$/, '/completion');
+  const endpoints = [endpoint];
+
+  if (endpoint.endsWith('/chat/completions')) {
+    const fallback = endpoint.replace(/\/chat\/completions$/, '/completion');
     endpoints.push(fallback);
   }
 
