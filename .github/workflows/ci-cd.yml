@@ -45,7 +45,7 @@ jobs:
           YC_API_KEY=dummy
           YC_FOLDER_ID=dummy
           YC_GPT_MODEL=yandexgpt/latest
-          YC_GPT_ENDPOINT=https://llm.api.cloud.yandex.net/foundationModels/v1/chat/completions
+          YC_GPT_ENDPOINT=https://llm.api.cloud.yandex.net/foundationModels/v1/completion
           EOF
 
       - name: Install Playwright browsers

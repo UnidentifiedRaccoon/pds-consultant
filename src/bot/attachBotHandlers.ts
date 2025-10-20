@@ -5,6 +5,7 @@ import {
   createCalculateKeyboard,
   createInfoKeyboard,
   createConsultationKeyboard,
+  createBackToMenuKeyboard,
 } from './messages.js';
 import { sendPdfReport } from './conversations/capitalFlow.js';
 import { logger } from '../logger.js';
@@ -52,7 +53,8 @@ export function attachBotHandlers(bot: Bot<MyContext>): void {
   bot.callbackQuery('consultation', async (ctx) => {
     await ctx.answerCallbackQuery();
     ctx.session.consultation = { history: [] };
-    await ctx.reply(MESSAGES.CONSULTATION.PROMPT, createConsultationKeyboard());
+    logger.info({ chatId: ctx.chat?.id }, 'consultation:mode:entered');
+    await ctx.reply(MESSAGES.CONSULTATION.PROMPT, createBackToMenuKeyboard());
   });
 
   // Сценарии расчета
@@ -101,6 +103,14 @@ export function attachBotHandlers(bot: Bot<MyContext>): void {
   });
 
   bot.on('message:text', async (ctx, next) => {
+    logger.debug(
+      {
+        chatId: ctx.chat?.id,
+        hasConsultation: Boolean(ctx.session.consultation),
+        text: ctx.message.text,
+      },
+      'message:text:received'
+    );
     if (!ctx.session.consultation) {
       await next();
       return;
@@ -111,14 +121,41 @@ export function attachBotHandlers(bot: Bot<MyContext>): void {
       return;
     }
 
+    const history = ctx.session.consultation.history ?? [];
+    const chatId = ctx.chat?.id;
+    const placeholder = await ctx.reply(MESSAGES.CONSULTATION.THINKING);
+    let placeholderRemoved = false;
+
+    const removePlaceholder = async () => {
+      if (placeholderRemoved || !chatId) {
+        return;
+      }
+      try {
+        await ctx.api.deleteMessage(chatId, placeholder.message_id);
+      } catch (deleteError) {
+        logger.warn(
+          { err: deleteError, chatId, messageId: placeholder.message_id },
+          'consultation:placeholder:delete_failed'
+        );
+      } finally {
+        placeholderRemoved = true;
+      }
+    };
+
     try {
-      const history = ctx.session.consultation.history ?? [];
       const answer = await fetchConsultationReply(history, userText);
 
       ctx.session.consultation.history = answer.history;
 
+      await removePlaceholder();
+
+      logger.info(
+        { chatId: ctx.chat?.id, promptLength: userText.length, replyLength: answer.text.length },
+        'consultation:reply:sent'
+      );
       await ctx.reply(answer.text, createConsultationKeyboard());
     } catch (error) {
+      await removePlaceholder();
       logger.error({ err: error, chatId: ctx.chat?.id }, 'consultation:error');
       await ctx.reply(MESSAGES.CONSULTATION.API_ERROR, createConsultationKeyboard());
     }

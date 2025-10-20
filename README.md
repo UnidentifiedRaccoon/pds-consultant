@@ -36,7 +36,7 @@ PUBLIC_BASE_URL=
 YC_API_KEY=your_yandex_cloud_api_key
 YC_FOLDER_ID=your_folder_id
 YC_GPT_MODEL=yandexgpt/latest
-YC_GPT_ENDPOINT=https://llm.api.cloud.yandex.net/foundationModels/v1/chat/completions
+YC_GPT_ENDPOINT=https://llm.api.cloud.yandex.net/foundationModels/v1/completion
 ```
 
 ## 💻 Разработка
