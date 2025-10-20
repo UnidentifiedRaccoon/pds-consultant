@@ -1,5 +1,5 @@
 import { performance } from 'node:perf_hooks';
-import { chromium, type Browser, type PDFOptions } from 'playwright';
+import { chromium, type Browser, type Page } from 'playwright';
 import { MESSAGES } from './messages.js';
 import { CapitalLumpSumResult } from '../../calculation-models/capital-lump-sum/index.js';
 import { logger } from '../logger.js';
@@ -33,8 +33,8 @@ const CFG = {
     '--no-zygote',
     '--single-process',
   ],
-  VIEWPORT: { width: 1200, height: 800 } as const,
-} as const;
+  VIEWPORT: { width: 1200, height: 800 },
+};
 
 function formatCurrency(value: number): string {
   return new Intl.NumberFormat('ru-RU', {
@@ -218,7 +218,8 @@ export async function generateCapitalPdfReport(
     );
     mark('page:content:set');
 
-    const simpleOptions: PDFOptions = {
+    type PdfOptions = Parameters<Page['pdf']>[0];
+    const simpleOptions: PdfOptions = {
       format: 'A4',
       printBackground: false,
       margin: { top: '5mm', right: '5mm', bottom: '5mm', left: '5mm' },
@@ -226,7 +227,7 @@ export async function generateCapitalPdfReport(
       displayHeaderFooter: false,
     };
 
-    const normalOptions: PDFOptions = {
+    const normalOptions: PdfOptions = {
       format: 'A4',
       printBackground: false,
       margin: { top: '10mm', right: '10mm', bottom: '10mm', left: '10mm' },
@@ -234,12 +235,12 @@ export async function generateCapitalPdfReport(
       displayHeaderFooter: false,
     };
 
-    const minimalOptions: PDFOptions = {
+    const minimalOptions: PdfOptions = {
       format: 'A4',
       printBackground: false,
     };
 
-    const tryPdf = async (options: PDFOptions, timeout: number, tag: string) => {
+    const tryPdf = async (options: PdfOptions, timeout: number, tag: string) => {
       const buffer = await withTimeout(page.pdf(options), timeout, tag);
       mark(tag, { pdfSize: buffer.length });
       return buffer;
