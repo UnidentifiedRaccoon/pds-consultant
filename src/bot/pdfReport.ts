@@ -1,8 +1,4 @@
-import fs from 'node:fs';
-import path from 'node:path';
-import os from 'node:os';
-import { ensureDir } from 'fs-extra';
-import { chromium } from 'playwright';
+import { chromium, type Browser } from 'playwright';
 import { MESSAGES } from './messages.js';
 import { CapitalLumpSumResult } from '../../calculation-models/capital-lump-sum/index.js';
 
@@ -13,13 +9,6 @@ interface ConversationData {
   income?: 'low' | 'mid' | 'high';
   ndflRate?: string;
   reinvest?: boolean;
-}
-
-const REPORTS_DIR = path.resolve(os.tmpdir(), 'pds-consultant-reports');
-
-export async function ensureReportsDir(): Promise<string> {
-  await ensureDir(REPORTS_DIR);
-  return REPORTS_DIR;
 }
 
 function formatCurrency(value: number): string {
@@ -35,6 +24,23 @@ function formatCurrency(value: number): string {
 export interface PdfReportOptions {
   targetSum?: number;
   data?: ConversationData;
+}
+
+let browserPromise: Promise<Browser> | null = null;
+
+async function getBrowser(): Promise<Browser> {
+  if (!browserPromise) {
+    browserPromise = chromium
+      .launch({
+        args: ['--no-sandbox', '--disable-dev-shm-usage'],
+      })
+      .catch((error) => {
+        browserPromise = null;
+        throw error;
+      });
+  }
+
+  return browserPromise;
 }
 
 export async function generateCapitalPdfReport(
@@ -64,20 +70,16 @@ export async function generateCapitalPdfReport(
     .replace('{tenYearPayment}', formatCurrency(calculation.tenYearPayment))
     .replace('{lumpSum}', formatCurrency(targetSum || calculation.lumpSum));
 
-  await ensureReportsDir();
-  const pdfPath = path.join(REPORTS_DIR, `pds-capital-report-${Date.now()}.pdf`);
-
-  const browser = await chromium.launch();
+  const browser = await getBrowser();
+  const context = await browser.newContext();
+  let pdfBuffer: Buffer;
   try {
-    const page = await browser.newPage();
-    await page.setContent(pdfHtml, { waitUntil: 'load' });
-    await page.pdf({ path: pdfPath, format: 'A4', printBackground: true });
+    const page = await context.newPage();
+    await page.setContent(pdfHtml, { waitUntil: 'domcontentloaded' });
+    pdfBuffer = await page.pdf({ format: 'A4', printBackground: true });
   } finally {
-    await browser.close();
+    await context.close();
   }
 
-  const buffer = await fs.promises.readFile(pdfPath);
-  await fs.promises.unlink(pdfPath);
-
-  return buffer;
+  return pdfBuffer;
 }

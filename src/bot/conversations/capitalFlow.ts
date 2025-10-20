@@ -111,8 +111,11 @@ export async function capitalFlow(conversation: MyConversation, ctx: MyContext) 
     // Расчет и отправка результата
     await sendCalculationResult(ctx, data as CapitalData);
 
-    // Сохраняем данные в session для PDF
-    ctx.session.lastCalculation = data as CapitalData;
+    // Сохраняем данные в session для PDF через внешний контекст,
+    // потому что внутри conversation недоступны плагины (session и т.д.)
+    await conversation.external((externalCtx) => {
+      externalCtx.session.lastCalculation = data as CapitalData;
+    });
   } catch (error) {
     logger.error({ err: error, chatId: ctx.chat?.id }, 'capitalFlow:error');
     await ctx.reply(MESSAGES.ERRORS.GENERIC);

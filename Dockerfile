@@ -30,6 +30,7 @@ RUN npm ci --omit=dev --ignore-scripts
 # Stage 3: Production image
 FROM node:20-slim
 ENV NODE_ENV=production
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 WORKDIR /app
 
 # Устанавливаем системные зависимости для Playwright Chromium
@@ -77,7 +78,8 @@ RUN npx playwright install chromium --with-deps
 RUN groupadd -r nodejs && useradd -r -g nodejs nodejs \
     && chown -R nodejs:nodejs /app \
     && mkdir -p /tmp/pds-consultant-reports \
-    && chown nodejs:nodejs /tmp/pds-consultant-reports
+    && chown nodejs:nodejs /tmp/pds-consultant-reports \
+    && chown -R nodejs:nodejs "$PLAYWRIGHT_BROWSERS_PATH"
 
 USER nodejs
 

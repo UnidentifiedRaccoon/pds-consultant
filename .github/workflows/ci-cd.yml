@@ -166,9 +166,9 @@ jobs:
             --image ${{ env.REGISTRY }}/${{ secrets.YC_REGISTRY_ID }}/${{ env.IMAGE_NAME }}:latest \
             --service-account-id "$YC_SERVICE_ACCOUNT_ID" \
             --environment TELEGRAM_BOT_TOKEN=$TELEGRAM_BOT_TOKEN,WEBHOOK_SECRET=$WEBHOOK_SECRET,PUBLIC_BASE_URL=$PUBLIC_BASE_URL,LOG_LEVEL=info,YC_API_KEY=$YC_API_KEY,YC_FOLDER_ID=$YC_FOLDER_ID,YC_GPT_MODEL=$YC_GPT_MODEL,YC_GPT_ENDPOINT=$YC_GPT_ENDPOINT \
-            --memory 512m \
+            --memory 1g \
             --cores 1 \
-            --execution-timeout 30s \
+            --execution-timeout 60s \
             --concurrency 1
 
       - name: Update Telegram webhook
