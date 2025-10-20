@@ -1,5 +1,5 @@
 import { performance } from 'node:perf_hooks';
-import { chromium, type Browser } from 'playwright';
+import { chromium, type Browser, type PDFOptions } from 'playwright';
 import { MESSAGES } from './messages.js';
 import { CapitalLumpSumResult } from '../../calculation-models/capital-lump-sum/index.js';
 import { logger } from '../logger.js';
@@ -13,55 +13,117 @@ interface ConversationData {
   reinvest?: boolean;
 }
 
-function formatCurrency(value: number): string {
-  return new Intl.NumberFormat('ru-RU', {
-    style: 'currency',
-    currency: 'RUB',
-    maximumFractionDigits: 0,
-  })
-    .format(value)
-    .replace('₽', '₽');
-}
-
 export interface PdfReportOptions {
   targetSum?: number;
   data?: ConversationData;
 }
 
+const CFG = {
+  TIMEOUT_SET_CONTENT: 10_000,
+  TIMEOUT_PDF_SIMPLE: 10_000,
+  TIMEOUT_PDF_NORMAL: 12_000,
+  TIMEOUT_PDF_MINIMAL: 8_000,
+  DISABLE_BROWSER_REUSE: false,
+  BLOCK_EXTERNAL: true,
+  CHROMIUM_ARGS: [
+    '--no-sandbox',
+    '--disable-setuid-sandbox',
+    '--disable-dev-shm-usage',
+    '--disable-gpu',
+    '--no-zygote',
+    '--single-process',
+  ],
+  VIEWPORT: { width: 1200, height: 800 } as const,
+} as const;
+
+function formatCurrency(value: number): string {
+  return new Intl.NumberFormat('ru-RU', {
+    style: 'currency',
+    currency: 'RUB',
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+
+function withTimeout<T>(promise: Promise<T>, ms: number, tag: string): Promise<T> {
+  let timer: NodeJS.Timeout | null = null;
+  const timeout = new Promise<never>((resolve, reject) => {
+    void resolve;
+    timer = setTimeout(() => reject(new Error(`${tag} timeout ${ms}ms`)), ms);
+  });
+
+  return Promise.race([promise, timeout]).finally(() => {
+    if (timer) {
+      clearTimeout(timer);
+    }
+  });
+}
+
 let browserPromise: Promise<Browser> | null = null;
 
+async function launchBrowser(): Promise<Browser> {
+  logger.info({ scope: 'pdf', step: 'browser:launch:start' }, 'pdf:browser:launch');
+  const launchedAt = performance.now();
+  const browser = await chromium.launch({ headless: true, args: CFG.CHROMIUM_ARGS });
+  logger.info(
+    {
+      scope: 'pdf',
+      step: 'browser:launch:success',
+      durationMs: Math.round(performance.now() - launchedAt),
+    },
+    'pdf:browser:launch:success'
+  );
+  return browser;
+}
+
 async function getBrowser(): Promise<Browser> {
-  if (!browserPromise) {
-    logger.info({ scope: 'pdf', step: 'browser:launch:start' }, 'pdf:browser:launch');
-    const launchedAt = performance.now();
-    browserPromise = chromium.launch({
-      args: ['--no-sandbox', '--disable-dev-shm-usage'],
-    });
-    browserPromise
-      .then(() => {
-        logger.info(
-          {
-            scope: 'pdf',
-            step: 'browser:launch:success',
-            durationMs: Math.round(performance.now() - launchedAt),
-          },
-          'pdf:browser:launch:success'
-        );
-        return undefined;
-      })
-      .catch((error) => {
-        logger.error(
-          { scope: 'pdf', step: 'browser:launch:failed', err: error },
-          'pdf:browser:launch:failed'
-        );
-        browserPromise = null;
-        throw error;
-      });
-  } else {
-    logger.info({ scope: 'pdf', step: 'browser:reuse' }, 'pdf:browser:reuse');
+  if (CFG.DISABLE_BROWSER_REUSE) {
+    return launchBrowser();
   }
 
-  return browserPromise;
+  if (!browserPromise) {
+    browserPromise = (async () => {
+      try {
+        return await launchBrowser();
+      } catch (error) {
+        browserPromise = null;
+        throw error;
+      }
+    })();
+  }
+
+  try {
+    const browser = await browserPromise;
+    if (typeof (browser as Browser & { isConnected?: () => boolean }).isConnected === 'function') {
+      if ((browser as Browser & { isConnected: () => boolean }).isConnected()) {
+        logger.info({ scope: 'pdf', step: 'browser:reuse' }, 'pdf:browser:reuse');
+        return browser;
+      }
+    }
+    browserPromise = null;
+    return getBrowser();
+  } catch (error) {
+    browserPromise = null;
+    throw error;
+  }
+}
+
+async function cycleBrowser(reason: string): Promise<void> {
+  if (CFG.DISABLE_BROWSER_REUSE || !browserPromise) {
+    return;
+  }
+
+  try {
+    const browser = await browserPromise;
+    await browser.close();
+  } catch (error) {
+    logger.warn(
+      { scope: 'pdf', step: 'browser:cycle:warn', reason, err: (error as Error).message },
+      'pdf:browser:cycle:warn'
+    );
+  } finally {
+    browserPromise = null;
+    logger.info({ scope: 'pdf', step: 'browser:cycled', reason }, 'pdf:browser:cycled');
+  }
 }
 
 export async function generateCapitalPdfReport(
@@ -70,7 +132,8 @@ export async function generateCapitalPdfReport(
 ): Promise<Buffer> {
   const startAt = performance.now();
   let lastMark = startAt;
-  const logProgress = (step: string, extra?: Record<string, unknown>) => {
+
+  const mark = (step: string, extra?: Record<string, unknown>) => {
     const now = performance.now();
     const chunkMs = now - lastMark;
     const totalMs = now - startAt;
@@ -87,7 +150,7 @@ export async function generateCapitalPdfReport(
     );
   };
 
-  const { targetSum, data } = options || {};
+  const { targetSum, data } = options ?? {};
   logger.info(
     {
       scope: 'pdf',
@@ -121,28 +184,107 @@ export async function generateCapitalPdfReport(
     )
     .replace('{lifePayment}', formatCurrency(calculation.lifePayment))
     .replace('{tenYearPayment}', formatCurrency(calculation.tenYearPayment))
-    .replace('{lumpSum}', formatCurrency(targetSum || calculation.lumpSum));
-  logProgress('html:ready', { htmlLength: pdfHtml.length });
+    .replace('{lumpSum}', formatCurrency(targetSum ?? calculation.lumpSum));
+
+  mark('html:ready', { htmlLength: pdfHtml.length });
 
   const browser = await getBrowser();
-  logProgress('browser:ready');
+  mark('browser:ready');
 
-  const context = await browser.newContext();
-  logProgress('context:created');
+  const context = await browser.newContext({ viewport: CFG.VIEWPORT });
+  mark('context:created');
 
-  let pdfBuffer: Buffer;
+  let pdfBuffer: Buffer | null = null;
+
   try {
     const page = await context.newPage();
-    logProgress('page:created');
+    mark('page:created');
 
-    await page.setContent(pdfHtml, { waitUntil: 'domcontentloaded' });
-    logProgress('page:content:set');
+    if (CFG.BLOCK_EXTERNAL) {
+      await page.route('**/*', (route) => {
+        const url = route.request().url();
+        if (url.startsWith('about:') || url.startsWith('data:')) {
+          return route.continue();
+        }
+        return route.abort();
+      });
+      mark('route:blocked');
+    }
 
-    pdfBuffer = await page.pdf({ format: 'A4', printBackground: true });
-    logProgress('pdf:generated', { pdfSize: pdfBuffer.length });
+    await withTimeout(
+      page.setContent(pdfHtml, { waitUntil: 'domcontentloaded' }),
+      CFG.TIMEOUT_SET_CONTENT,
+      'setContent'
+    );
+    mark('page:content:set');
+
+    const simpleOptions: PDFOptions = {
+      format: 'A4',
+      printBackground: false,
+      margin: { top: '5mm', right: '5mm', bottom: '5mm', left: '5mm' },
+      preferCSSPageSize: false,
+      displayHeaderFooter: false,
+    };
+
+    const normalOptions: PDFOptions = {
+      format: 'A4',
+      printBackground: false,
+      margin: { top: '10mm', right: '10mm', bottom: '10mm', left: '10mm' },
+      preferCSSPageSize: false,
+      displayHeaderFooter: false,
+    };
+
+    const minimalOptions: PDFOptions = {
+      format: 'A4',
+      printBackground: false,
+    };
+
+    const tryPdf = async (options: PDFOptions, timeout: number, tag: string) => {
+      const buffer = await withTimeout(page.pdf(options), timeout, tag);
+      mark(tag, { pdfSize: buffer.length });
+      return buffer;
+    };
+
+    try {
+      pdfBuffer = await tryPdf(simpleOptions, CFG.TIMEOUT_PDF_SIMPLE, 'pdf:simple');
+    } catch (simpleError) {
+      logger.warn(
+        { scope: 'pdf', step: 'pdf:simple:fail', err: (simpleError as Error).message },
+        'pdf:simple:fail'
+      );
+      try {
+        pdfBuffer = await tryPdf(normalOptions, CFG.TIMEOUT_PDF_NORMAL, 'pdf:normal');
+      } catch (normalError) {
+        logger.warn(
+          { scope: 'pdf', step: 'pdf:normal:fail', err: (normalError as Error).message },
+          'pdf:normal:fail'
+        );
+        pdfBuffer = await tryPdf(minimalOptions, CFG.TIMEOUT_PDF_MINIMAL, 'pdf:minimal');
+      }
+    }
+
+    if (!pdfBuffer || pdfBuffer.length === 0) {
+      throw new Error('empty PDF buffer');
+    }
+
+    mark('pdf:generated', { pdfSize: pdfBuffer.length });
+  } catch (error) {
+    logger.error(
+      { scope: 'pdf', step: 'build:error', err: (error as Error).message },
+      'pdf:build:error'
+    );
+    await cycleBrowser('build:error');
+    throw error;
   } finally {
-    await context.close();
-    logProgress('context:closed');
+    try {
+      await context.close();
+    } catch (closeError) {
+      logger.warn(
+        { scope: 'pdf', step: 'context:close:warn', err: (closeError as Error).message },
+        'pdf:context:close:warn'
+      );
+    }
+    mark('context:closed');
   }
 
   logger.info(
