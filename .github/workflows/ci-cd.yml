@@ -145,6 +145,17 @@ jobs:
           curl -sSL https://storage.yandexcloud.net/yandexcloud-yc/install.sh | bash
           export PATH=$PATH:$HOME/yandex-cloud/bin
 
+          missing=()
+          for var in YC_SA_JSON YC_CLOUD_ID YC_FOLDER_ID YC_CONTAINER_NAME YC_SERVICE_ACCOUNT_ID; do
+            if [ -z "${!var:-}" ]; then
+              missing+=("$var")
+            fi
+          done
+          if [ ${#missing[@]} -ne 0 ]; then
+            echo "Missing required Yandex Cloud secrets: ${missing[*]}" >&2
+            exit 1
+          fi
+
           echo "$YC_SA_JSON" > sa.json
           yc config set service-account-key sa.json
           yc config set cloud-id $YC_CLOUD_ID
